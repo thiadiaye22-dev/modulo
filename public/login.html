@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8590c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg">
+<title>Connexion – Mon Planning Resto</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>🍽️ Mon Planning Resto</h1>
+    <div class="sub">Connexion gérant ou employé</div>
+    <form id="loginForm">
+      <label>Identifiant (email du gérant, ou identifiant employé)
+        <input id="login" type="text" autocomplete="username" required>
+      </label>
+      <label>Mot de passe / code
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="primary" type="submit" style="width:100%">Se connecter</button>
+      <div class="error" id="err"></div>
+    </form>
+    <div class="switch">Pas encore de compte restaurant ? <a href="signup.html">Créer un compte</a></div>
+  </div>
+</div>
+<script>
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = document.getElementById("err");
+  err.textContent = "";
+  try{
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        login: document.getElementById("login").value.trim(),
+        password: document.getElementById("password").value,
+      }),
+    });
+    const data = await res.json();
+    if(!res.ok){ err.textContent = data.error || "Erreur de connexion."; return; }
+    location.href = "app.html";
+  }catch(e){ err.textContent = "Erreur de connexion au serveur."; }
+});
+</script>
+</body>
+</html>

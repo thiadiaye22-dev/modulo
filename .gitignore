@@ -1,0 +1,5 @@
+node_modules/
+data/
+*.log
+server-pid.txt
+make-icon.ps1

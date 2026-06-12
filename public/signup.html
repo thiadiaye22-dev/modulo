@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8590c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg">
+<title>Créer un compte – Mon Planning Resto</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>🍽️ Mon Planning Resto</h1>
+    <div class="sub">Créer le compte de ton restaurant (gérant)</div>
+    <form id="signupForm">
+      <label>Nom du restaurant
+        <input id="restaurantName" type="text" required>
+      </label>
+      <label>Email
+        <input id="email" type="email" autocomplete="username" required>
+      </label>
+      <label>Mot de passe
+        <input id="password" type="password" autocomplete="new-password" required>
+      </label>
+      <button class="primary" type="submit" style="width:100%">Créer le compte</button>
+      <div class="error" id="err"></div>
+    </form>
+    <div class="switch">Déjà un compte ? <a href="login.html">Se connecter</a></div>
+  </div>
+</div>
+<script>
+document.getElementById("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = document.getElementById("err");
+  err.textContent = "";
+  try{
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        restaurantName: document.getElementById("restaurantName").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+      }),
+    });
+    const data = await res.json();
+    if(!res.ok){ err.textContent = data.error || "Erreur lors de la création du compte."; return; }
+    location.href = "app.html";
+  }catch(e){ err.textContent = "Erreur de connexion au serveur."; }
+});
+</script>
+</body>
+</html>

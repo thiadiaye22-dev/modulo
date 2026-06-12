@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8590c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg">
+<title>Mon Planning Resto</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>🍽️ Mon Planning Resto</h1>
+  <nav>
+    <button data-tab="planning" class="active">📅 Planning</button>
+    <button data-tab="pointage">⏱️ Pointage</button>
+    <button data-tab="equipe">👥 Équipe</button>
+    <button data-tab="conges">🌴 Congés</button>
+    <button data-tab="paie">💶 Récap paie</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="user-box" id="userBox"></div>
+  <button class="small-btn" id="notifBtn">🔔 Activer les notifications</button>
+  <button class="small-btn" onclick="logout()">🚪 Déconnexion</button>
+</header>
+
+<main>
+
+<!-- ==================== PLANNING ==================== -->
+<section id="tab-planning" class="active">
+  <div class="card">
+    <h2>🆘 Créneaux de dernière minute</h2>
+    <div id="openShiftsCard"></div>
+    <div id="openShiftForm" class="form-row" style="margin-top:10px">
+      <label>Date<input type="date" id="osDate"></label>
+      <label>Poste<select id="osPoste">
+        <option>Cuisine</option><option>Salle</option><option>Plonge</option>
+        <option>Bar</option><option>Direction</option><option>Autre</option>
+      </select></label>
+      <label>De<input type="time" id="osDebut"></label>
+      <label>À<input type="time" id="osFin"></label>
+      <label>Note (optionnel)<input id="osNote" placeholder="ex : remplacement, urgent"></label>
+      <button class="primary" onclick="createOpenShift()">+ Proposer ce créneau</button>
+    </div>
+  </div>
+  <div class="toolbar">
+    <button class="secondary" onclick="changeWeek(-1)">◀ Semaine préc.</button>
+    <span class="week-label" id="weekLabel"></span>
+    <button class="secondary" onclick="changeWeek(1)">Semaine suiv. ▶</button>
+    <button class="secondary" onclick="goToday()">Aujourd'hui</button>
+    <div class="spacer"></div>
+    <button class="primary no-print" onclick="duplicatePrevWeek()" id="dupBtn">📋 Copier la semaine précédente</button>
+    <button class="secondary" onclick="window.print()">🖨️ Imprimer / Partager</button>
+  </div>
+  <div class="table-wrap"><table id="planningTable"></table></div>
+  <div class="legende" id="legende"></div>
+  <p class="hint no-print" id="costLine" style="font-size:14px"></p>
+  <p class="hint no-print" id="planningHint">💡 <b>Clique sur une case</b> pour mettre les horaires de service (midi et soir). Une case vide = jour de repos.
+  Astuce : utilise les <b>⚡ horaires types</b> ou <b>📋 Copier</b> / <b>📥 Coller</b> dans la fenêtre de saisie – les horaires
+  s'appliquent en un clic. Les congés posés dans l'onglet « Congés » s'affichent automatiquement ici.</p>
+</section>
+
+<!-- ==================== POINTAGE ==================== -->
+<section id="tab-pointage">
+  <div class="card" style="text-align:center">
+    <div id="clockNow" style="font-size:38px;font-weight:700;letter-spacing:2px"></div>
+    <div id="clockDate" style="color:var(--muted);font-size:15px"></div>
+  </div>
+  <div class="card">
+    <h2>Qui pointe ? – clique sur ton nom</h2>
+    <div id="pointageGrid"></div>
+  </div>
+  <div class="card">
+    <h2>Pointages du jour</h2>
+    <div class="table-wrap"><table id="pointageTable"></table></div>
+    <p class="hint">En cas d'oubli de pointage, le gérant peut <b>corriger les heures directement dans le tableau</b> ou supprimer une ligne.
+    Les heures pointées alimentent automatiquement le <b>💶 Récap paie</b>. Un service qui finit après minuit ? Pas de souci,
+    le départ se pointe normalement, la durée est bien comptée.</p>
+  </div>
+</section>
+
+<!-- ==================== EQUIPE ==================== -->
+<section id="tab-equipe">
+  <div class="card">
+    <h2>Ajouter quelqu'un à l'équipe</h2>
+    <div class="form-row">
+      <label>Prénom / Nom<input id="empNom" placeholder="ex : Karim D."></label>
+      <label>Poste<select id="empPoste">
+        <option>Cuisine</option><option>Salle</option><option>Plonge</option>
+        <option>Bar</option><option>Direction</option><option>Autre</option>
+      </select></label>
+      <label>Heures contrat / semaine<input id="empHeures" type="number" min="0" max="60" step="0.5" value="39" style="width:90px"></label>
+      <label>Taux horaire brut € (optionnel)<input id="empTaux" type="number" min="0" step="0.1" placeholder="ex : 12.5" style="width:100px"></label>
+      <button class="primary" onclick="addEmployee()">+ Ajouter</button>
+    </div>
+  </div>
+  <div class="table-wrap"><table id="equipeTable"></table></div>
+  <div class="card">
+    <h2>📍 Position du restaurant</h2>
+    <div id="restaurantLocation"></div>
+  </div>
+  <p class="hint">Les heures contrat servent à calculer automatiquement les <b>heures supplémentaires</b> chaque semaine.
+  Le <b>taux horaire brut</b> (sur le contrat ou la fiche de paie) sert à estimer le coût du personnel – tu peux le laisser vide.
+  Tu peux modifier les heures et le taux directement dans le tableau ci-dessus. La colonne <b>Accès</b> permet de créer un
+  identifiant de connexion pour chaque employé (planning en lecture seule, pointage, congés personnels).</p>
+</section>
+
+<!-- ==================== CONGES ==================== -->
+<section id="tab-conges">
+  <div class="card" id="absFormCard">
+    <h2>Poser une absence</h2>
+    <div class="form-row">
+      <label>Employé<select id="absEmp"></select></label>
+      <label>Du<input type="date" id="absDu"></label>
+      <label>Au<input type="date" id="absAu"></label>
+      <label>Type<select id="absType">
+        <option value="CP">Congés payés</option>
+        <option value="Maladie">Maladie</option>
+        <option value="Sanssolde">Sans solde</option>
+        <option value="Autre">Autre</option>
+      </select></label>
+      <button class="primary" onclick="addAbsence()">+ Enregistrer</button>
+    </div>
+  </div>
+  <div class="card" id="absRequestCard">
+    <h2>Faire une demande de congé</h2>
+    <div class="form-row">
+      <label>Du<input type="date" id="reqDu"></label>
+      <label>Au<input type="date" id="reqAu"></label>
+      <label>Type<select id="reqType">
+        <option value="CP">Congés payés</option>
+        <option value="Maladie">Maladie</option>
+        <option value="Sanssolde">Sans solde</option>
+        <option value="Autre">Autre</option>
+      </select></label>
+      <label>Motif (optionnel)<input id="reqMotif" placeholder="ex : mariage, rendez-vous médical"></label>
+      <button class="primary" onclick="requestAbsence()">+ Envoyer la demande</button>
+    </div>
+  </div>
+  <div class="table-wrap"><table id="absTable"></table></div>
+</section>
+
+<!-- ==================== PAIE ==================== -->
+<section id="tab-paie">
+  <div class="toolbar">
+    <label style="font-weight:600">Mois : <input type="month" id="paieMois" onchange="renderPaie()"></label>
+    <div class="spacer"></div>
+    <button class="secondary" onclick="exportPaieCSV()">⬇️ Export Excel (CSV)</button>
+    <button class="secondary" onclick="window.print()">🖨️ Imprimer pour le comptable</button>
+  </div>
+  <div class="table-wrap"><table id="paieTable"></table></div>
+  <p class="hint">Les <b>heures sup</b> sont comptées semaine par semaine (heures au-delà du contrat). Les semaines à cheval sur deux mois
+  sont rattachées au mois qui contient le jeudi. Les <b>heures pointées</b> viennent de l'onglet ⏱️ Pointage : quand un employé
+  a pointé dans le mois, ce sont elles qui servent au calcul du coût (sinon, les heures planning). Le <b>coût estimé</b> = heures ×
+  taux horaire brut, <b>hors charges patronales et majorations</b>. ⚠️ Ce récap est une <b>aide à la préparation</b> : les montants exacts
+  (convention HCR, jours fériés, majorations d'heures sup…) restent à valider avec ton comptable.</p>
+</section>
+
+</main>
+
+<!-- Fenetre de saisie des horaires -->
+<div id="overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal">
+    <h3 id="modalTitle"></h3>
+    <div class="sub" id="modalSub"></div>
+    <div id="presetZone"></div>
+    <div class="service-block">
+      <b>Service 1 (ex : midi)</b>
+      <div class="times">de <input type="time" id="s1d"> à <input type="time" id="s1f"></div>
+    </div>
+    <div class="service-block">
+      <b>Service 2 (ex : soir)</b>
+      <div class="times">de <input type="time" id="s2d"> à <input type="time" id="s2f"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="copyShift()">📋 Copier</button>
+      <button class="secondary" id="pasteBtn" onclick="pasteShift()" style="display:none"></button>
+    </div>
+    <div class="modal-actions">
+      <button class="primary" onclick="saveShift()">Enregistrer</button>
+      <button class="secondary" onclick="clearShift()">Jour de repos</button>
+      <button class="secondary" onclick="closeModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
