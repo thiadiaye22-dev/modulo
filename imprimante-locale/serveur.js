@@ -218,17 +218,29 @@ async function demarrer() {
   if (!IMPRIMANTE) {
     console.log('  Recherche de l\'imprimante sur le reseau, patientez...');
     console.log('');
-    const trouvees = await recherche.chercherImprimantes(t => console.log('    ' + t));
+    const r = await recherche.chercherImprimantes(t => console.log('    ' + t));
     console.log('');
-    if (trouvees.length === 1) {
-      IMPRIMANTE = trouvees[0];
-      console.log(`  Imprimante trouvee : ${IMPRIMANTE}`);
-    } else if (trouvees.length > 1) {
-      IMPRIMANTE = trouvees[0];
-      console.log('  Plusieurs imprimantes trouvees : ' + trouvees.join(', '));
-      console.log(`  La premiere est retenue (${IMPRIMANTE}).`);
-      console.log('  Pour en choisir une autre, relancez avec :');
-      console.log(`      node serveur.js --imprimante ${trouvees[1]}`);
+
+    if (r.brother.length) {
+      IMPRIMANTE = r.brother[0];
+      console.log(`  Imprimante Brother trouvee : ${IMPRIMANTE}`);
+      if (r.brother.length > 1) {
+        console.log('  Autres Brother sur le reseau : ' + r.brother.slice(1).join(', '));
+        console.log('  Pour en choisir une autre, relancez avec :');
+        console.log(`      node serveur.js --imprimante ${r.brother[1]}`);
+      }
+      if (r.autres.length) {
+        console.log('  (ignore : ' + r.autres.join(', ') + ' — pas des imprimantes Brother)');
+      }
+    } else if (r.autres.length) {
+      // Des imprimantes repondent, mais aucune ne s'annonce comme Brother.
+      IMPRIMANTE = r.autres[0];
+      console.log('  Imprimantes trouvees : ' + r.autres.join(', '));
+      console.log('  AUCUNE NE S\'IDENTIFIE COMME UNE BROTHER.');
+      console.log(`  La premiere est retenue (${IMPRIMANTE}), mais ce n'est`);
+      console.log('  peut-etre pas la bonne. Si rien ne sort a l\'impression,');
+      console.log('  relancez en indiquant la bonne adresse, par exemple :');
+      console.log(`      node serveur.js --imprimante ${r.autres[r.autres.length - 1]}`);
     } else {
       console.log('  AUCUNE IMPRIMANTE TROUVEE.');
       console.log('');

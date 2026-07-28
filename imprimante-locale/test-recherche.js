@@ -43,6 +43,48 @@ const verifier = (nom, fn) => {
     });
   });
 
+  // --- Identification Brother ---
+  // Une vraie QL répond 32 octets commençant par 0x80 0x20 0x42 ('B').
+  const brother = net.createServer(socket => {
+    socket.on('data', () => {
+      const etat = Buffer.alloc(32, 0);
+      etat[0] = 0x80; etat[1] = 0x20; etat[2] = 0x42; etat[3] = 0x30;
+      socket.write(etat);
+    });
+  });
+  await new Promise(res => brother.listen(9101, '127.0.0.1', res));
+
+  // Une imprimante d'un autre constructeur : accepte la connexion, ne répond rien.
+  const muette = net.createServer(() => {});
+  await new Promise(res => muette.listen(9102, '127.0.0.1', res));
+
+  const avecPort = (port) => new Promise(resoudre => {
+    const s = new net.Socket();
+    const recu = [];
+    let fini = false;
+    const fin = (ok) => { if (fini) return; fini = true; s.destroy(); resoudre(ok); };
+    s.setTimeout(1200);
+    s.on('timeout', () => fin(false));
+    s.on('error', () => fin(false));
+    s.on('data', c => {
+      recu.push(c);
+      const r = Buffer.concat(recu);
+      if (r.length >= 3) fin(r[0] === 0x80 && r[1] === 0x20 && r[2] === 0x42);
+    });
+    s.connect(port, '127.0.0.1', () => s.write(Buffer.concat([
+      Buffer.alloc(200, 0), Buffer.from([0x1b, 0x40]), Buffer.from([0x1b, 0x69, 0x53])])));
+  });
+
+  const reponseBrother = await avecPort(9101);
+  verifier('une imprimante qui répond la signature Brother est reconnue',
+    () => assert.strictEqual(reponseBrother, true));
+
+  const reponseMuette = await avecPort(9102);
+  verifier('une imprimante muette n\'est pas prise pour une Brother',
+    () => assert.strictEqual(reponseMuette, false));
+
+  brother.close(); muette.close();
+
   console.log(echecs ? `\n${echecs} échec(s)\n` : '\nTout est vert.\n');
   process.exit(echecs ? 1 : 0);
 })();
