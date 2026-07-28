@@ -266,6 +266,15 @@ async function demarrer() {
   console.log('  LAISSEZ CETTE FENETRE OUVERTE.');
   console.log('  Si vous la fermez, l\'impression ne fonctionnera plus.');
   console.log('');
+  console.log('  --------------------------------------------------------');
+  console.log('  Si la tablette affiche "Serveur injoignable" :');
+  console.log('   - le pare-feu Windows bloque les connexions entrantes.');
+  console.log('     Lancez autoriser-pare-feu.bat (clic droit, Executer en');
+  console.log('     tant qu\'administrateur), puis relancez ce serveur.');
+  console.log('   - verifiez aussi que la tablette est sur le MEME Wi-Fi');
+  console.log('     que cet ordinateur (ni 4G, ni reseau invite).');
+  console.log('  --------------------------------------------------------');
+  console.log('');
 }
 
 demarrer().catch(e => {
