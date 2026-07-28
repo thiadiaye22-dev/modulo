@@ -1,0 +1,15 @@
+{
+  "name": "imprimante-etiquettes-dlc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serveur d'impression local pour Brother QL-820NWBc — etiquettes DLC",
+  "main": "serveur.js",
+  "scripts": {
+    "start": "node serveur.js",
+    "test": "node test-raster.js && node test-serveur.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=16"
+  }
+}
