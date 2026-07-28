@@ -844,6 +844,18 @@
         </div>
       </div>
 
+      <div class="champ" style="margin-bottom:14px;">
+        <label>Méthode d'impression</label>
+        <select id="cfg-methode" style="max-width:340px;">
+          <option value="directe">Directe — boîte d'impression du navigateur</option>
+          <option value="onglet">Page séparée — si la méthode directe imprime toute la page</option>
+        </select>
+        <div style="font-size:10px; color:var(--gris); margin-top:4px; line-height:1.4;">
+          Sur certaines tablettes Android, l'impression directe sort l'application entière.
+          La page séparée ouvre un onglet ne contenant que les étiquettes : le résultat est alors garanti.
+        </div>
+      </div>
+
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
         <button class="btn btn-secondaire btn-petit" id="cfg-test">🧪 Étiquette de test / calibration</button>
         <button class="btn btn-secondaire btn-petit" id="cfg-reset">↺ Réglages par défaut</button>
@@ -2775,6 +2787,7 @@ const QL_ROULEAUX = {
 
 const CFG_IMPRESSION_DEFAUT = {
   mode: 'ql',
+  methode: 'directe',
   rouleau: 'dk22205',
   hauteur: 'auto',
   largeurPerso: 62,
@@ -3018,7 +3031,7 @@ const ID_ZONE_IMPRESSION = 'zone-impression-etiquettes';
 
 // Repère affiché dans le panneau : permet de vérifier d'un coup d'œil quelle
 // version du moteur d'impression tourne réellement sur le poste ou la tablette.
-const VERSION_IMPRESSION = 'MOTEUR V4';
+const VERSION_IMPRESSION = 'MOTEUR V5';
 
 function imprimerEtiquettes(items, cfgOverride) {
   const cfg = Object.assign(lireConfigImpression(), cfgOverride || {});
@@ -3045,6 +3058,7 @@ function imprimerEtiquettes(items, cfgOverride) {
     hauteurPage: hauteur,
     modeA4: cfg.mode === 'a4',
     marge,
+    methodeOnglet: cfg.methode === 'onglet',
     avantImpression: (zone, poserPage) => {
       if (cfg.mode === 'a4') return true;
 
@@ -3096,28 +3110,17 @@ function lancerImpression(o) {
   // Bloc dédié au format de page, remplacé après mesure en hauteur auto.
   const stylePage = document.createElement('style');
   stylePage.id = ID_ZONE_IMPRESSION + '-page';
+  let pageFinale = { l: o.largeur, h: o.hauteurPage || 100 };
   const poserPage = (l, h) => {
+    pageFinale = { l, h };
     stylePage.textContent = o.modeA4
-      ? '@media print { @page { size: A4; margin: 8mm; } }'
-      : `@media print { @page { size: ${l}mm ${h}mm; margin: 0; } }`;
+      ? '@page { size: A4; margin: 8mm; }'
+      : `@page { size: ${l}mm ${h}mm; margin: 0; }`;
   };
-  poserPage(o.largeur, o.hauteurPage || 100);
-
-  // Masquage du reste de la page à l'impression uniquement.
-  const styleMasque = document.createElement('style');
-  styleMasque.id = ID_ZONE_IMPRESSION + '-masque';
-  styleMasque.textContent = `
-    @media print {
-      html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
-      body > *:not(${P}) { display:none !important; }
-      /* Pas de display forcé ici : le mode A4 a besoin de garder son display:flex. */
-      ${P} { position:static !important; left:auto !important; top:auto !important;
-             z-index:auto !important; }
-    }`;
+  poserPage(pageFinale.l, pageFinale.h);
 
   document.head.appendChild(styleRendu);
   document.head.appendChild(stylePage);
-  document.head.appendChild(styleMasque);
   document.body.appendChild(zone);
 
   let annule = false;
@@ -3130,17 +3133,99 @@ function lancerImpression(o) {
   }
   if (annule) { nettoyerZoneImpression(); return; }
 
-  const fin = () => { window.removeEventListener('afterprint', fin); nettoyerZoneImpression(); };
+  // Méthode « page séparée » : on réutilise le rendu qui vient d'être mesuré et
+  // ajusté, puis on l'ouvre seul dans un onglet. Le document imprimé ne peut alors
+  // rien contenir d'autre, quel que soit le navigateur.
+  if (o.methodeOnglet) {
+    const cssAutonome = (o.modeA4
+      ? cssEtiquettesA4()
+      : `@page { size: ${pageFinale.l}mm ${pageFinale.h}mm; margin: 0; }\n` +
+        reglesEtiquettesThermiques(pageFinale.l, pageFinale.h, o.marge, '')) + (o.cssSupplementaire || '');
+    const rendu = zone.innerHTML;
+    nettoyerZoneImpression();
+    ouvrirEtiquettesDansOnglet(rendu, cssAutonome, o.titre || 'Étiquettes DLC');
+    return;
+  }
+
+  // Masquage du reste de la page par styles EN LIGNE, et non par une règle
+  // @media print : Chrome Android n'applique pas de façon fiable un masquage
+  // par feuille de style à l'impression, et sortait toute l'interface de
+  // l'application sur le rouleau. Les styles en ligne, eux, sont appliqués au
+  // document lui-même — il n'y a plus de règle d'impression à honorer.
+  const restaurer = [];
+  const cacher = (el, prop, valeur) => {
+    restaurer.push([el, prop, el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)]);
+    el.style.setProperty(prop, valeur, 'important');
+  };
+  Array.prototype.forEach.call(document.body.children, el => {
+    if (el !== zone && el.tagName !== 'SCRIPT') cacher(el, 'display', 'none');
+  });
+  cacher(document.body, 'margin', '0');
+  cacher(document.body, 'padding', '0');
+  cacher(document.body, 'background', '#fff');
+  cacher(zone, 'position', 'static');
+  cacher(zone, 'left', 'auto');
+  cacher(zone, 'top', 'auto');
+  cacher(zone, 'z-index', 'auto');
+
+  let restaure = false;
+  const fin = () => {
+    if (restaure) return;
+    restaure = true;
+    window.removeEventListener('afterprint', fin);
+    restaurer.forEach(([el, prop, valeur, prio]) => {
+      if (valeur) el.style.setProperty(prop, valeur, prio); else el.style.removeProperty(prop);
+    });
+    nettoyerZoneImpression();
+  };
   window.addEventListener('afterprint', fin);
-  // Filet de sécurité : certains navigateurs n'émettent pas afterprint.
+  // Filets de sécurité : tous les navigateurs n'émettent pas afterprint, et sur
+  // mobile le retour dans l'application passe souvent par un changement de visibilité.
+  document.addEventListener('visibilitychange', function vc() {
+    if (!document.hidden) { document.removeEventListener('visibilitychange', vc); setTimeout(fin, 300); }
+  });
   setTimeout(fin, 60000);
 
   try {
     window.print();
   } catch (e) {
-    nettoyerZoneImpression();
+    fin();
     alert('❌ Impression impossible : ' + e.message);
   }
+}
+
+// Porte de sortie : construit une page autonome ne contenant QUE les étiquettes
+// et l'ouvre dans un onglet séparé. Le document imprimé ne peut alors rien
+// contenir d'autre, quel que soit le navigateur.
+function ouvrirEtiquettesDansOnglet(corps, css, titre) {
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${titre}</title><style>${css}
+    @media screen { body { background:#e9e9e9; padding:8px; }
+      .etq { background:#fff; margin:0 auto 8px; box-shadow:0 1px 5px rgba(0,0,0,.3); }
+      #barre { position:sticky; top:0; background:#1B5E20; color:#fff; padding:10px;
+        text-align:center; font:700 15px system-ui,sans-serif; margin:-8px -8px 10px; }
+      #barre button { font:700 15px system-ui,sans-serif; padding:8px 18px; border:0;
+        border-radius:6px; background:#fff; color:#1B5E20; margin-left:10px; }
+      @page { margin:0; } }
+    @media print { #barre { display:none !important; } }
+    </style></head><body>
+    <div id="barre">Étiquettes prêtes <button onclick="window.print()">🖨 Imprimer</button></div>
+    ${corps}</body></html>`;
+
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  const w = window.open(url, '_blank');
+  if (!w) {
+    if (confirm("La fenêtre a été bloquée par le navigateur.\n\n" +
+                "Ouvrir les étiquettes à la place de la page actuelle ?\n" +
+                "(vous reviendrez avec le bouton Retour)")) {
+      window.location.href = url;
+      return;
+    }
+    URL.revokeObjectURL(url);
+    return;
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function nettoyerZoneImpression() {
@@ -3153,6 +3238,7 @@ function nettoyerZoneImpression() {
 function appliquerConfigAuFormulaire() {
   const cfg = lireConfigImpression();
   document.getElementById('cfg-mode').value = cfg.mode;
+  document.getElementById('cfg-methode').value = cfg.methode;
   document.getElementById('cfg-rouleau').value = cfg.rouleau;
   document.getElementById('cfg-hauteur').value = cfg.hauteur;
   document.getElementById('cfg-largeur-perso').value = cfg.largeurPerso;
@@ -3180,6 +3266,7 @@ function majVisibiliteConfig() {
 function collecterConfigDepuisFormulaire() {
   const cfg = {
     mode: document.getElementById('cfg-mode').value,
+    methode: document.getElementById('cfg-methode').value,
     rouleau: document.getElementById('cfg-rouleau').value,
     hauteur: document.getElementById('cfg-hauteur').value,
     largeurPerso: Number(document.getElementById('cfg-largeur-perso').value) || 62,
@@ -3196,7 +3283,7 @@ function collecterConfigDepuisFormulaire() {
   return cfg;
 }
 
-['cfg-mode','cfg-rouleau','cfg-hauteur','cfg-largeur-perso','cfg-hauteur-perso','cfg-entete',
+['cfg-mode','cfg-methode','cfg-rouleau','cfg-hauteur','cfg-largeur-perso','cfg-hauteur-perso','cfg-entete',
  'cfg-opt-entete','cfg-opt-heure','cfg-opt-allerg','cfg-opt-jours','cfg-opt-cb','cfg-opt-par']
   .forEach(id => {
     const el = document.getElementById(id);
@@ -3236,6 +3323,7 @@ document.getElementById('cfg-test').addEventListener('click', () => {
   const P = '#' + ID_ZONE_IMPRESSION;
   lancerImpression({
     corps, largeur, hauteurPage: hauteur, marge, modeA4: false,
+    methodeOnglet: cfg.methode === 'onglet', titre: 'Calibration',
     cssSupplementaire: `
       ${P} .cal-titre { font-size:12pt; font-weight:900; letter-spacing:2pt; text-align:center; margin-top:1.5mm; }
       ${P} .cal-regle { margin-top:1.5mm; }
