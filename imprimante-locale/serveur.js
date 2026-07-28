@@ -11,6 +11,8 @@
 
 const http = require('http');
 const net = require('net');
+const fs = require('fs');
+const path = require('path');
 const raster = require('./raster');
 const recherche = require('./recherche');
 
@@ -75,6 +77,10 @@ function cors(rep) {
   rep.setHeader('Access-Control-Allow-Origin', '*');
   rep.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   rep.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Chrome refuse depuis 2022 qu'une page appelle une adresse du réseau local
+  // sans cet en-tête (Private Network Access). Sans lui, l'application ouverte
+  // depuis un fichier local ne peut pas joindre ce serveur.
+  rep.setHeader('Access-Control-Allow-Private-Network', 'true');
 }
 
 function json(rep, code, corps) {
@@ -165,7 +171,23 @@ const serveur = http.createServer(async (req, rep) => {
 
   const chemin = (req.url || '/').split('?')[0];
 
-  if (chemin === '/' && req.method === 'GET') {
+  // L'application est servie par ce serveur : la page et les requêtes
+  // d'impression partagent alors la même origine, ce qui évite tous les
+  // blocages du navigateur (CORS, réseau privé, fichier local).
+  if ((chemin === '/' || chemin === '/index.html') && req.method === 'GET') {
+    const fichier = trouverApplication();
+    if (fichier) {
+      cors(rep);
+      rep.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8',
+                           'Cache-Control': 'no-store' });
+      return rep.end(fs.readFileSync(fichier));
+    }
+    cors(rep);
+    rep.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    return rep.end(PAGE_ACCUEIL.replace('IMPRIMANTE', IMPRIMANTE));
+  }
+
+  if (chemin === '/etat.html' && req.method === 'GET') {
     cors(rep);
     rep.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     return rep.end(PAGE_ACCUEIL.replace('IMPRIMANTE', IMPRIMANTE));
@@ -180,6 +202,15 @@ const serveur = http.createServer(async (req, rep) => {
 
   json(rep, 404, { ok: false, erreur: 'route inconnue' });
 });
+
+// L'application est cherchée à côté du serveur, puis dans public/ du dépôt.
+function trouverApplication() {
+  const candidats = [
+    path.join(__dirname, 'etiquettes-dlc.html'),
+    path.join(__dirname, '..', 'public', 'etiquettes-dlc.html')
+  ];
+  return candidats.find(f => { try { return fs.statSync(f).isFile(); } catch (e) { return false; } }) || null;
+}
 
 function adressesLocales() {
   const interfaces = require('os').networkInterfaces();
@@ -257,11 +288,14 @@ async function demarrer() {
   await new Promise(res => serveur.listen(PORT, '0.0.0.0', res));
 
   const adresses = adressesLocales();
-  console.log('  A RECOPIER DANS L\'APPLICATION, SUR LA TABLETTE :');
+  console.log('  OUVREZ CETTE ADRESSE DANS LE NAVIGATEUR DE LA TABLETTE :');
   console.log('');
   encadre(adresses.map(a => `http://${a}:${PORT}`));
   console.log('');
-  console.log('    (Application > Reglages > Adresse du serveur d\'impression)');
+  console.log('    L\'application s\'affiche directement. Rien a saisir,');
+  console.log('    rien a copier sur la tablette.');
+  console.log('    Astuce : ajoutez la page a l\'ecran d\'accueil de la');
+  console.log('    tablette pour la retrouver comme une vraie application.');
   console.log('');
   console.log('  LAISSEZ CETTE FENETRE OUVERTE.');
   console.log('  Si vous la fermez, l\'impression ne fonctionnera plus.');

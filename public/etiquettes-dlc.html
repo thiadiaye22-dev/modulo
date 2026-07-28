@@ -477,7 +477,15 @@ function afficherMessage(texte, ok) {
   if (ok) setTimeout(() => { m.className = ''; }, 6000);
 }
 
+// Quand l'application est servie par le serveur d'impression lui-même, elle
+// connaît son adresse : rien à configurer, et la page et les requêtes partagent
+// la même origine — ce qui évite tous les blocages du navigateur.
+function serveurHeberge() {
+  return location.protocol === 'http:' || location.protocol === 'https:';
+}
+
 function urlServeur() {
+  if (serveurHeberge()) return location.origin;
   let u = lireReglages().serveur.trim();
   if (!u) return null;
   if (!/^https?:\/\//.test(u)) u = 'http://' + u;
@@ -568,7 +576,14 @@ function appliquerJours() {
 
 function chargerReglages() {
   const r = lireReglages();
-  $('serveur').value = r.serveur;
+  $('serveur').value = serveurHeberge() ? location.origin : r.serveur;
+  if (serveurHeberge()) {
+    $('serveur').disabled = true;
+    const aide = $('serveur').closest('.champ');
+    if (aide) aide.insertAdjacentHTML('beforeend',
+      '<div style="font-size:12px; color:var(--vert); font-weight:700; margin-top:6px;">' +
+      '✓ Détecté automatiquement — rien à saisir.</div>');
+  }
   $('entete').value = r.entete;
   $('rouleau').value = r.rouleau;
   $('par').value = r.par;

@@ -63,14 +63,30 @@ automatique prend le relais.
 
 ## Sur la tablette
 
-1. Ouvrez `etiquettes-dlc.html`
-2. Dépliez **⚙️ Réglages**
-3. Collez l'adresse affichée par le serveur dans **Adresse du serveur d'impression**
-4. La pastille en haut à droite doit passer au vert : **✓ Imprimante prête**
+**Ouvrez simplement l'adresse affichée par le serveur** dans le navigateur —
+par exemple `http://192.168.1.18:3001`. L'application s'affiche directement.
+
+Rien à copier sur la tablette, rien à saisir : l'application est servie par le
+serveur d'impression, donc elle connaît déjà son adresse.
+
+Ce point n'est pas qu'une commodité. Ouverte depuis un fichier local, la page
+ne peut pas joindre le serveur : Chrome bloque les requêtes d'une page locale
+vers une adresse du réseau privé. Servie par le serveur, la page et les
+requêtes partagent la même origine et plus rien n'est bloqué.
+
+Astuce : dans le menu de Chrome, **Ajouter à l'écran d'accueil** — la page se
+retrouve comme une vraie application.
 
 Appuyez d'abord sur **Étiquette de test** : le trait imprimé doit mesurer
 exactement 50 mm à la règle, et le trait du bas doit toucher les deux bords du
 rouleau.
+
+### Si la tablette affiche « Serveur injoignable »
+
+- **Le pare-feu Windows** bloque les connexions entrantes. Lancez
+  `autoriser-pare-feu.bat` en clic droit → *Exécuter en tant qu'administrateur*.
+- **La tablette n'est pas sur le même réseau** que l'ordinateur : ni 4G, ni
+  réseau « invité », que beaucoup de box isolent du réseau principal.
 
 ## Démarrage automatique
 
@@ -119,7 +135,8 @@ dans `raster.js` :
 
 | Route | Méthode | Rôle |
 |---|---|---|
-| `/` | GET | Page d'état, affiche l'adresse à recopier |
+| `/` | GET | Sert l'application d'étiquettes |
+| `/etat.html` | GET | Page d'état lisible |
 | `/etat` | GET | `{ joignable, detail }` — teste la connexion à l'imprimante |
 | `/imprimer` | POST | Envoie un travail d'impression |
 

@@ -1,0 +1,650 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Étiquettes DLC — Le Modulo</title>
+<style>
+  :root {
+    --vert: #1B5E20; --vert-clair: #E8F5E9; --rouge: #B71C1C; --rouge-clair: #FFEBEE;
+    --gris: #6B7280; --gris-clair: #F3F4F6; --bordure: #D1D5DB; --encre: #111827;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #fff; color: var(--encre); padding-bottom: 40px;
+  }
+  header {
+    background: var(--vert); color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 800; }
+  #etat-serveur {
+    font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 20px;
+    background: rgba(255,255,255,.2); white-space: nowrap;
+  }
+  #etat-serveur.ok { background: #fff; color: var(--vert); }
+  #etat-serveur.ko { background: var(--rouge); color: #fff; }
+
+  main { padding: 16px; max-width: 720px; margin: 0 auto; }
+
+  .champ { margin-bottom: 14px; }
+  .champ > label {
+    display: block; font-size: 12px; font-weight: 800; color: var(--gris);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px;
+  }
+  input, select, textarea {
+    width: 100%; font: inherit; padding: 13px 12px; border: 2px solid var(--bordure);
+    border-radius: 10px; background: #fff; color: var(--encre);
+  }
+  input:focus, select:focus { outline: none; border-color: var(--vert); }
+
+  .duo { display: flex; gap: 10px; }
+  .duo > * { flex: 1; min-width: 0; }
+
+  .raccourcis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .raccourcis button {
+    font: 600 14px/1 inherit; padding: 10px 14px; border: 2px solid var(--bordure);
+    background: #fff; border-radius: 20px; color: var(--encre);
+  }
+  .raccourcis button.actif { background: var(--vert); border-color: var(--vert); color: #fff; }
+
+  .btn {
+    display: block; width: 100%; font: 800 19px/1 inherit; padding: 20px;
+    border: 0; border-radius: 12px; background: var(--vert); color: #fff; margin-top: 8px;
+  }
+  .btn:disabled { background: var(--gris); opacity: .6; }
+  .btn.secondaire {
+    background: #fff; color: var(--encre); border: 2px solid var(--bordure);
+    font-size: 16px; padding: 15px;
+  }
+
+  #apercu-carte {
+    border: 2px solid var(--bordure); border-radius: 12px; padding: 14px;
+    margin-bottom: 16px; background: var(--gris-clair);
+  }
+  #apercu-carte h2 { font-size: 13px; margin: 0 0 10px; color: var(--gris); text-transform: uppercase; letter-spacing: .5px; }
+  #apercu { display: block; width: 100%; max-width: 320px; margin: 0 auto;
+    background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.2); }
+  #apercu-info { text-align: center; font-size: 12px; color: var(--gris); margin-top: 8px; }
+
+  #message {
+    display: none; padding: 14px; border-radius: 10px; margin-bottom: 16px;
+    font-weight: 700; font-size: 15px;
+  }
+  #message.ok { display: block; background: var(--vert-clair); color: var(--vert); }
+  #message.ko { display: block; background: var(--rouge-clair); color: var(--rouge); }
+
+  details { margin-top: 24px; border-top: 1px solid var(--bordure); padding-top: 16px; }
+  summary { font-weight: 700; color: var(--gris); padding: 8px 0; }
+  .aide { font-size: 13px; color: var(--gris); line-height: 1.7; }
+  .aide code { background: var(--gris-clair); padding: 2px 6px; border-radius: 4px; }
+</style>
+
+<header>
+  <h1>🏷️ Étiquettes DLC</h1>
+  <span id="etat-serveur">Vérification…</span>
+</header>
+
+<main>
+  <div id="message"></div>
+
+  <div id="apercu-carte">
+    <h2>Aperçu — taille réelle de l'étiquette</h2>
+    <canvas id="apercu"></canvas>
+    <div id="apercu-info"></div>
+  </div>
+
+  <div class="champ">
+    <label>Préparation</label>
+    <div class="raccourcis" id="raccourcis"></div>
+    <input type="text" id="nom" placeholder="Nom de la préparation" autocomplete="off">
+  </div>
+
+  <div class="champ">
+    <label>Durée de conservation</label>
+    <div class="raccourcis" id="durees"></div>
+    <div class="duo">
+      <input type="number" id="jours" min="0" max="365" step="1" value="3">
+      <input type="date" id="dlc">
+    </div>
+  </div>
+
+  <div class="duo">
+    <div class="champ">
+      <label>Stockage</label>
+      <select id="lieu">
+        <option>Chambre froide positive</option>
+        <option>Chambre froide négative</option>
+        <option>Réfrigérateur de service</option>
+        <option>Congélateur</option>
+        <option>Sec / Réserve</option>
+      </select>
+    </div>
+    <div class="champ">
+      <label>Réalisé par</label>
+      <input type="text" id="par" placeholder="Initiales" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="champ">
+    <label>Allergènes</label>
+    <input type="text" id="allergenes" placeholder="Ex : Lait, Gluten, Œufs" autocomplete="off">
+  </div>
+
+  <div class="champ">
+    <label>Nombre d'étiquettes</label>
+    <select id="copies">
+      <option value="1">1 étiquette</option>
+      <option value="2">2 étiquettes</option>
+      <option value="3">3 étiquettes</option>
+      <option value="4">4 étiquettes</option>
+      <option value="6">6 étiquettes</option>
+      <option value="10">10 étiquettes</option>
+    </select>
+  </div>
+
+  <button class="btn" id="imprimer">🖨️ IMPRIMER</button>
+  <button class="btn secondaire" id="test">Étiquette de test</button>
+
+  <details>
+    <summary>⚙️ Réglages</summary>
+    <div class="champ" style="margin-top:12px;">
+      <label>Adresse du serveur d'impression</label>
+      <input type="text" id="serveur" placeholder="http://192.168.1.20:3001" autocomplete="off">
+    </div>
+    <div class="champ">
+      <label>Nom du restaurant</label>
+      <input type="text" id="entete" placeholder="Restaurant Le Modulo" autocomplete="off">
+    </div>
+    <div class="champ">
+      <label>Largeur du rouleau</label>
+      <select id="rouleau">
+        <option value="62">62 mm — DK-22205 (continu)</option>
+        <option value="50">50 mm</option>
+        <option value="29">29 mm</option>
+      </select>
+    </div>
+    <button class="btn secondaire" id="verifier">Vérifier la connexion</button>
+    <p class="aide">
+      Le serveur d'impression tourne sur un ordinateur du réseau de la cuisine.
+      Lancez-le avec <code>node serveur.js</code>, il affiche l'adresse à recopier ici.
+      Les réglages sont mémorisés sur cette tablette.
+    </p>
+  </details>
+</main>
+
+<script>
+"use strict";
+
+// ===================== RÉGLAGES =====================
+const CLE = 'etiquettes_dlc_reglages';
+const DEFAUTS = { serveur: '', entete: 'Restaurant Le Modulo', rouleau: 62, par: '' };
+
+function lireReglages() {
+  try { return Object.assign({}, DEFAUTS, JSON.parse(localStorage.getItem(CLE) || '{}')); }
+  catch (e) { return Object.assign({}, DEFAUTS); }
+}
+function ecrireReglages(r) {
+  try { localStorage.setItem(CLE, JSON.stringify(r)); } catch (e) {}
+}
+
+// ===================== CODE 128 (jeu B) =====================
+const C128 = [
+"212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+"221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+"221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+"212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+"231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+"231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+"314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+"112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+"111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+"214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+"114131","311141","411131","211412","211214","211232","2331112"];
+
+// Renvoie la suite des largeurs de barres et d'espaces, en modules.
+function code128Modules(donnee) {
+  const chars = String(donnee).split('').map(c => c.charCodeAt(0)).filter(c => c >= 32 && c <= 126);
+  if (!chars.length) return null;
+  const codes = [104];
+  let somme = 104;
+  chars.forEach((c, i) => { const v = c - 32; codes.push(v); somme += v * (i + 1); });
+  codes.push(somme % 103);
+  codes.push(106);
+  return codes.map(c => C128[c]).join('').split('').map(Number);
+}
+
+function codeTracabilite(nom, date) {
+  const abrege = String(nom || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'PREP';
+  return abrege + String(date || '').replace(/-/g, '').slice(2);
+}
+
+// ===================== DESSIN DE L'ÉTIQUETTE =====================
+// Tout est dessiné à 300 points par pouce, la résolution native de la QL-820NWBc.
+// L'étiquette part donc en 1:1 : aucune mise à l'échelle par un pilote.
+const PPP = 300;
+const mm = (n) => n * PPP / 25.4;      // millimètres → points
+const pt = (n) => n * PPP / 72;        // points typographiques → points
+
+// Largeur imprimable réelle selon le rouleau (62 mm → 696 points sur 720).
+const LARGEURS = { 62: 696, 50: 566, 29: 306 };
+
+function decouperTexte(ctx, texte, largeurMax) {
+  const mots = String(texte).split(/\s+/).filter(Boolean);
+  const lignes = [];
+  let courante = '';
+  mots.forEach(mot => {
+    const essai = courante ? courante + ' ' + mot : mot;
+    if (ctx.measureText(essai).width <= largeurMax || !courante) courante = essai;
+    else { lignes.push(courante); courante = mot; }
+  });
+  if (courante) lignes.push(courante);
+  return lignes;
+}
+
+/**
+ * Dessine l'étiquette et renvoie sa hauteur en points.
+ * Appelé une première fois pour mesurer, puis sur un canevas à la bonne taille.
+ */
+function dessinerEtiquette(ctx, d, largeurPoints) {
+  const marge = mm(2);
+  const l = largeurPoints - marge * 2;
+  let y = mm(2);
+
+  ctx.fillStyle = '#000';
+  ctx.textBaseline = 'top';
+
+  // En-tête
+  if (d.entete) {
+    ctx.font = `700 ${pt(7)}px Arial, sans-serif`;
+    ctx.fillText(d.entete.toUpperCase(), marge, y);
+    y += pt(7) * 1.2 + mm(0.8);
+    ctx.fillRect(marge, y, l, mm(0.5));
+    y += mm(0.5) + mm(1.5);
+  }
+
+  // Nom de la préparation — la taille baisse d'un cran si le texte est long.
+  let taille = 15;
+  ctx.font = `900 ${pt(taille)}px Arial, sans-serif`;
+  let lignes = decouperTexte(ctx, String(d.nom || '').toUpperCase(), l);
+  while (lignes.length > 2 && taille > 10) {
+    taille -= 1.5;
+    ctx.font = `900 ${pt(taille)}px Arial, sans-serif`;
+    lignes = decouperTexte(ctx, String(d.nom || '').toUpperCase(), l);
+  }
+  lignes.forEach(t => { ctx.fillText(t, marge, y); y += pt(taille) * 1.1; });
+  y += mm(0.8);
+
+  // Lignes d'information
+  const info = (etiquette, valeur) => {
+    ctx.font = `700 ${pt(9)}px Arial, sans-serif`;
+    const largeurEtiquette = ctx.measureText(etiquette + ' ').width;
+    ctx.fillText(etiquette, marge, y);
+    ctx.font = `400 ${pt(9)}px Arial, sans-serif`;
+    ctx.fillText(valeur, marge + largeurEtiquette, y);
+    y += pt(9) * 1.3;
+  };
+  if (d.production) info('Produit :', d.production);
+  if (d.lieu) info('Stockage :', d.lieu);
+
+  // Allergènes, encadrés
+  if (d.allergenes) {
+    y += mm(1);
+    ctx.font = `700 ${pt(8.5)}px Arial, sans-serif`;
+    const texte = 'ALLERGÈNES : ' + d.allergenes.toUpperCase();
+    const lignesA = decouperTexte(ctx, texte, l - mm(2.4));
+    const hauteur = lignesA.length * pt(8.5) * 1.3 + mm(1.8);
+    ctx.lineWidth = mm(0.4);
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(marge + mm(0.2), y, l - mm(0.4), hauteur);
+    let yA = y + mm(0.9);
+    lignesA.forEach(t => { ctx.fillText(t, marge + mm(1.2), yA); yA += pt(8.5) * 1.3; });
+    y += hauteur;
+  }
+
+  // Bandeau DLC en noir plein : la seule zone qui doit sauter aux yeux.
+  y += mm(1.2);
+  const hBandeau = pt(6.5) * 1.25 + pt(20) * 1.1 + (d.jours != null ? pt(8) * 1.3 : 0) + mm(1.4);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(marge, y, l, hBandeau);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  let yB = y + mm(0.7);
+  ctx.font = `700 ${pt(6.5)}px Arial, sans-serif`;
+  ctx.fillText('À CONSOMMER AVANT LE', marge + l / 2, yB);
+  yB += pt(6.5) * 1.25;
+  ctx.font = `900 ${pt(20)}px Arial, sans-serif`;
+  ctx.fillText(d.dlcTexte, marge + l / 2, yB);
+  yB += pt(20) * 1.1;
+  if (d.jours != null) {
+    ctx.font = `700 ${pt(8)}px Arial, sans-serif`;
+    ctx.fillText(d.jours < 0 ? 'PÉRIMÉ' : (d.jours === 0 ? 'DERNIER JOUR' : 'J-' + d.jours),
+      marge + l / 2, yB);
+  }
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#000';
+  y += hBandeau + mm(1.2);
+
+  // Code-barres de traçabilité
+  if (d.code) {
+    const modules = code128Modules(d.code);
+    if (modules) {
+      const total = modules.reduce((a, b) => a + b, 0) + 20;   // + zones calmes
+      const largeurModule = Math.min(mm(0.34), l / total);
+      const hBarres = mm(7);
+      let x = marge + (l - total * largeurModule) / 2 + 10 * largeurModule;
+      let barre = true;
+      modules.forEach(n => {
+        if (barre) ctx.fillRect(Math.round(x), y, Math.ceil(n * largeurModule), hBarres);
+        x += n * largeurModule;
+        barre = !barre;
+      });
+      y += hBarres + mm(0.8);
+      ctx.font = `400 ${pt(8)}px "Courier New", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(d.code, marge + l / 2, y);
+      ctx.textAlign = 'left';
+      y += pt(8) * 1.3;
+    }
+  }
+
+  // Pied : auteur et date d'impression
+  y += mm(1);
+  ctx.fillRect(marge, y, l, mm(0.3));
+  y += mm(1.2);
+  ctx.font = `400 ${pt(8)}px Arial, sans-serif`;
+  if (d.par) ctx.fillText(d.par, marge, y);
+  ctx.textAlign = 'right';
+  ctx.fillText(d.imprimeLe, marge + l, y);
+  ctx.textAlign = 'left';
+  y += pt(8) * 1.3 + mm(1.5);
+
+  return Math.ceil(y);
+}
+
+// Produit le canevas final à la hauteur exacte du contenu.
+function rendreEtiquette(d, largeurPoints) {
+  const mesure = document.createElement('canvas');
+  mesure.width = largeurPoints;
+  mesure.height = 4000;
+  const ctxM = mesure.getContext('2d');
+  ctxM.fillStyle = '#fff';
+  ctxM.fillRect(0, 0, mesure.width, mesure.height);
+  const hauteur = dessinerEtiquette(ctxM, d, largeurPoints);
+
+  const canevas = document.createElement('canvas');
+  canevas.width = largeurPoints;
+  canevas.height = hauteur;
+  const ctx = canevas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canevas.width, canevas.height);
+  dessinerEtiquette(ctx, d, largeurPoints);
+  return canevas;
+}
+
+// Conversion en 1 bit par point : l'imprimante ne connaît que noir ou blanc.
+function versBits(canevas) {
+  const { width, height } = canevas;
+  const data = canevas.getContext('2d').getImageData(0, 0, width, height).data;
+  const octetsParLigne = Math.ceil(width / 8);
+  const bits = new Uint8Array(octetsParLigne * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      // Luminance ; l'anticrénelage du texte est ramené au noir ou au blanc.
+      const lum = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+      if (lum < 128) bits[y * octetsParLigne + (x >> 3)] |= 0x80 >> (x & 7);
+    }
+  }
+  return { bits, largeurPoints: width, hauteur: height };
+}
+
+function base64(octets) {
+  let s = '';
+  for (let i = 0; i < octets.length; i++) s += String.fromCharCode(octets[i]);
+  return btoa(s);
+}
+
+// ===================== DONNÉES DU FORMULAIRE =====================
+const $ = (id) => document.getElementById(id);
+
+function formaterDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function joursRestants(iso) {
+  const a = new Date(); a.setHours(0, 0, 0, 0);
+  return Math.ceil((new Date(iso + 'T00:00:00') - a) / 86400000);
+}
+
+function donneesEtiquette() {
+  const r = lireReglages();
+  const dlc = $('dlc').value;
+  if (!$('nom').value.trim() || !dlc) return null;
+  const maintenant = new Date();
+  return {
+    entete: r.entete,
+    nom: $('nom').value.trim(),
+    production: maintenant.toLocaleDateString('fr-FR') + ' à ' +
+                maintenant.toTimeString().slice(0, 5),
+    lieu: $('lieu').value,
+    par: $('par').value.trim(),
+    allergenes: $('allergenes').value.trim(),
+    dlcTexte: formaterDate(dlc),
+    jours: joursRestants(dlc),
+    code: codeTracabilite($('nom').value, new Date().toISOString().slice(0, 10)),
+    imprimeLe: maintenant.toLocaleDateString('fr-FR')
+  };
+}
+
+// ===================== APERÇU =====================
+let canevasCourant = null;
+
+function rafraichirApercu() {
+  const d = donneesEtiquette();
+  const apercu = $('apercu');
+  const info = $('apercu-info');
+  const largeur = LARGEURS[lireReglages().rouleau] || 696;
+
+  if (!d) {
+    apercu.width = largeur; apercu.height = mm(30);
+    const c = apercu.getContext('2d');
+    c.fillStyle = '#fff'; c.fillRect(0, 0, apercu.width, apercu.height);
+    c.fillStyle = '#9CA3AF';
+    c.font = `${pt(11)}px Arial, sans-serif`;
+    c.textAlign = 'center';
+    c.fillText('Renseignez le nom et la date', apercu.width / 2, apercu.height / 2 - pt(6));
+    info.textContent = '';
+    canevasCourant = null;
+    $('imprimer').disabled = true;
+    return;
+  }
+
+  canevasCourant = rendreEtiquette(d, largeur);
+  apercu.width = canevasCourant.width;
+  apercu.height = canevasCourant.height;
+  apercu.getContext('2d').drawImage(canevasCourant, 0, 0);
+  const hMm = (canevasCourant.height / PPP * 25.4).toFixed(0);
+  info.textContent = `${lireReglages().rouleau} mm × ${hMm} mm — ${canevasCourant.width} × ${canevasCourant.height} points`;
+  $('imprimer').disabled = false;
+}
+
+// ===================== IMPRESSION =====================
+function afficherMessage(texte, ok) {
+  const m = $('message');
+  m.textContent = texte;
+  m.className = ok ? 'ok' : 'ko';
+  if (ok) setTimeout(() => { m.className = ''; }, 6000);
+}
+
+// Quand l'application est servie par le serveur d'impression lui-même, elle
+// connaît son adresse : rien à configurer, et la page et les requêtes partagent
+// la même origine — ce qui évite tous les blocages du navigateur.
+function serveurHeberge() {
+  return location.protocol === 'http:' || location.protocol === 'https:';
+}
+
+function urlServeur() {
+  if (serveurHeberge()) return location.origin;
+  let u = lireReglages().serveur.trim();
+  if (!u) return null;
+  if (!/^https?:\/\//.test(u)) u = 'http://' + u;
+  return u.replace(/\/+$/, '');
+}
+
+async function envoyerImpression(canevas, copies) {
+  const base = urlServeur();
+  if (!base) {
+    afficherMessage("Aucun serveur d'impression configuré — ouvrez ⚙️ Réglages.", false);
+    return;
+  }
+  const { bits, largeurPoints, hauteur } = versBits(canevas);
+  const page = { bits: base64(bits), largeurPoints, hauteur };
+  const pages = [];
+  for (let i = 0; i < copies; i++) pages.push(page);
+
+  $('imprimer').disabled = true;
+  afficherMessage('Envoi à l\'imprimante…', true);
+  try {
+    const rep = await fetch(base + '/imprimer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pages, options: { largeurMm: Number(lireReglages().rouleau) } })
+    });
+    const d = await rep.json();
+    if (!rep.ok || !d.ok) throw new Error(d.erreur || ('erreur ' + rep.status));
+    afficherMessage(`✅ ${copies} étiquette${copies > 1 ? 's' : ''} envoyée${copies > 1 ? 's' : ''} à l'imprimante.`, true);
+  } catch (e) {
+    afficherMessage('❌ ' + e.message + "\nVérifiez que le serveur d'impression tourne et que la tablette est sur le même Wi-Fi.", false);
+  } finally {
+    $('imprimer').disabled = false;
+  }
+}
+
+async function verifierServeur() {
+  const base = urlServeur();
+  const badge = $('etat-serveur');
+  if (!base) { badge.textContent = 'Non configuré'; badge.className = 'ko'; return; }
+  badge.textContent = 'Vérification…'; badge.className = '';
+  try {
+    const rep = await fetch(base + '/etat', { cache: 'no-store' });
+    const d = await rep.json();
+    badge.textContent = d.joignable ? '✓ Imprimante prête' : '✗ Imprimante injoignable';
+    badge.className = d.joignable ? 'ok' : 'ko';
+  } catch (e) {
+    badge.textContent = '✗ Serveur injoignable';
+    badge.className = 'ko';
+  }
+}
+
+// ===================== INTERFACE =====================
+const PREPARATIONS = ['Fond de veau', 'Fond blanc', 'Sauce tomate', 'Béchamel',
+  'Crème pâtissière', 'Pickles', 'Marinade', 'Purée', 'Jus de viande', 'Pâte à choux'];
+const DUREES = [1, 2, 3, 5, 7, 14];
+
+function construireRaccourcis() {
+  const zone = $('raccourcis');
+  PREPARATIONS.forEach(nom => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = nom;
+    b.addEventListener('click', () => { $('nom').value = nom; rafraichirApercu(); });
+    zone.appendChild(b);
+  });
+
+  const zoneD = $('durees');
+  DUREES.forEach(j => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = j + ' j';
+    b.dataset.jours = j;
+    b.addEventListener('click', () => { $('jours').value = j; appliquerJours(); });
+    zoneD.appendChild(b);
+  });
+}
+
+function appliquerJours() {
+  const j = parseInt($('jours').value, 10);
+  if (isNaN(j)) return;
+  const d = new Date();
+  d.setDate(d.getDate() + j);
+  $('dlc').value = d.toISOString().slice(0, 10);
+  document.querySelectorAll('#durees button').forEach(b =>
+    b.classList.toggle('actif', Number(b.dataset.jours) === j));
+  rafraichirApercu();
+}
+
+function chargerReglages() {
+  const r = lireReglages();
+  $('serveur').value = serveurHeberge() ? location.origin : r.serveur;
+  if (serveurHeberge()) {
+    $('serveur').disabled = true;
+    const aide = $('serveur').closest('.champ');
+    if (aide) aide.insertAdjacentHTML('beforeend',
+      '<div style="font-size:12px; color:var(--vert); font-weight:700; margin-top:6px;">' +
+      '✓ Détecté automatiquement — rien à saisir.</div>');
+  }
+  $('entete').value = r.entete;
+  $('rouleau').value = r.rouleau;
+  $('par').value = r.par;
+}
+
+function enregistrerReglages() {
+  ecrireReglages({
+    serveur: $('serveur').value.trim(),
+    entete: $('entete').value.trim(),
+    rouleau: Number($('rouleau').value),
+    par: $('par').value.trim()
+  });
+  rafraichirApercu();
+}
+
+['nom', 'lieu', 'allergenes', 'par'].forEach(id =>
+  $(id).addEventListener('input', rafraichirApercu));
+$('par').addEventListener('change', enregistrerReglages);
+$('jours').addEventListener('input', appliquerJours);
+$('dlc').addEventListener('change', rafraichirApercu);
+['serveur', 'entete', 'rouleau'].forEach(id =>
+  $(id).addEventListener('change', () => { enregistrerReglages(); verifierServeur(); }));
+
+$('imprimer').addEventListener('click', () => {
+  if (!canevasCourant) return;
+  envoyerImpression(canevasCourant, parseInt($('copies').value, 10) || 1);
+});
+
+$('verifier').addEventListener('click', verifierServeur);
+
+// Étiquette de test : un repère de 50 mm valide l'échelle d'un coup d'œil.
+$('test').addEventListener('click', () => {
+  const largeur = LARGEURS[lireReglages().rouleau] || 696;
+  const c = document.createElement('canvas');
+  c.width = largeur;
+  c.height = Math.round(mm(42));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#000';
+  ctx.textBaseline = 'top';
+  ctx.font = `900 ${pt(14)}px Arial, sans-serif`;
+  ctx.fillText('CALIBRATION', mm(2), mm(2));
+  ctx.font = `400 ${pt(9)}px Arial, sans-serif`;
+  ctx.fillText('Le trait ci-dessous doit mesurer 50 mm', mm(2), mm(9));
+  ctx.fillRect(mm(2), mm(14), mm(50), mm(1.2));
+  ctx.fillText(`Rouleau ${lireReglages().rouleau} mm — ${largeur} points imprimables`, mm(2), mm(17));
+  ctx.fillRect(mm(2), mm(22), largeur - mm(4), mm(8));      // aplat noir
+  ctx.fillStyle = '#fff';
+  ctx.font = `900 ${pt(11)}px Arial, sans-serif`;
+  ctx.fillText('APLAT NOIR', mm(4), mm(24));
+  ctx.fillStyle = '#000';
+  ctx.font = `400 ${pt(8)}px Arial, sans-serif`;
+  ctx.fillText('Bords : le trait doit toucher les deux côtés', mm(2), mm(32));
+  ctx.fillRect(0, Math.round(mm(36)), largeur, Math.round(mm(1)));
+  envoyerImpression(c, 1);
+});
+
+// Démarrage
+construireRaccourcis();
+chargerReglages();
+appliquerJours();
+rafraichirApercu();
+verifierServeur();
+</script>
