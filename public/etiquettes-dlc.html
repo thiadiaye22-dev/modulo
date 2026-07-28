@@ -440,11 +440,16 @@ function donneesEtiquette() {
 // ===================== APERÇU =====================
 let canevasCourant = null;
 
+function largeurPoints() {
+  if (supportCharge && supportCharge.pointsImprimables) return supportCharge.pointsImprimables;
+  return LARGEURS[lireReglages().rouleau] || 696;
+}
+
 function rafraichirApercu() {
   const d = donneesEtiquette();
   const apercu = $('apercu');
   const info = $('apercu-info');
-  const largeur = LARGEURS[lireReglages().rouleau] || 696;
+  const largeur = largeurPoints();
 
   if (!d) {
     apercu.width = largeur; apercu.height = mm(30);
@@ -505,21 +510,30 @@ async function envoyerImpression(canevas, copies) {
 
   $('imprimer').disabled = true;
   afficherMessage('Envoi à l\'imprimante…', true);
+  let repondu = false;
   try {
     const rep = await fetch(base + '/imprimer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pages, options: { largeurMm: Number(lireReglages().rouleau) } })
     });
+    repondu = true;
     const d = await rep.json();
     if (!rep.ok || !d.ok) throw new Error(d.erreur || ('erreur ' + rep.status));
     afficherMessage(`✅ ${copies} étiquette${copies > 1 ? 's' : ''} envoyée${copies > 1 ? 's' : ''} à l'imprimante.`, true);
+    verifierServeur();
   } catch (e) {
-    afficherMessage('❌ ' + e.message + "\nVérifiez que le serveur d'impression tourne et que la tablette est sur le même Wi-Fi.", false);
+    // Le conseil réseau n'a de sens que si le serveur n'a pas répondu du tout ;
+    // s'il a répondu, son message dit déjà ce qui cloche côté imprimante.
+    afficherMessage('❌ ' + e.message + (repondu ? '' :
+      "\nVérifiez que le serveur d'impression tourne et que la tablette est sur le même Wi-Fi."), false);
   } finally {
     $('imprimer').disabled = false;
   }
 }
+
+// Rouleau réellement chargé, tel que l'imprimante le déclare.
+let supportCharge = null;
 
 async function verifierServeur() {
   const base = urlServeur();
@@ -529,11 +543,39 @@ async function verifierServeur() {
   try {
     const rep = await fetch(base + '/etat', { cache: 'no-store' });
     const d = await rep.json();
-    badge.textContent = d.joignable ? '✓ Imprimante prête' : '✗ Imprimante injoignable';
-    badge.className = d.joignable ? 'ok' : 'ko';
+    supportCharge = d.support || null;
+
+    if (!d.joignable) {
+      badge.textContent = '✗ Imprimante injoignable';
+      badge.className = 'ko';
+    } else if (supportCharge && supportCharge.erreurs && supportCharge.erreurs.length) {
+      badge.textContent = '⚠ ' + supportCharge.erreurs[0];
+      badge.className = 'ko';
+    } else if (supportCharge) {
+      badge.textContent = '✓ ' + supportCharge.libelle;
+      badge.className = 'ok';
+    } else {
+      badge.textContent = '✓ Imprimante prête';
+      badge.className = 'ok';
+    }
+
+    // On s'aligne sur le rouleau en place plutôt que sur un réglage figé.
+    if (supportCharge && supportCharge.largeurMm) {
+      const select = $('rouleau');
+      const dispo = [...select.options].some(o => Number(o.value) === supportCharge.largeurMm);
+      if (!dispo) {
+        select.insertAdjacentHTML('beforeend',
+          `<option value="${supportCharge.largeurMm}">${supportCharge.largeurMm} mm — détecté</option>`);
+      }
+      if (Number(select.value) !== supportCharge.largeurMm) {
+        select.value = String(supportCharge.largeurMm);
+        enregistrerReglages();
+      }
+    }
   } catch (e) {
     badge.textContent = '✗ Serveur injoignable';
     badge.className = 'ko';
+    supportCharge = null;
   }
 }
 
@@ -616,7 +658,7 @@ $('verifier').addEventListener('click', verifierServeur);
 
 // Étiquette de test : un repère de 50 mm valide l'échelle d'un coup d'œil.
 $('test').addEventListener('click', () => {
-  const largeur = LARGEURS[lireReglages().rouleau] || 696;
+  const largeur = largeurPoints();
   const c = document.createElement('canvas');
   c.width = largeur;
   c.height = Math.round(mm(42));

@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const raster = require('./raster');
 const recherche = require('./recherche');
+const etatImprimante = require('./etat');
 
 const PORT_IMPRIMANTE = 9100;
 
@@ -116,6 +117,31 @@ async function traiterImpression(req, rep) {
     return json(rep, 400, { ok: false, erreur: 'aucune page fournie' });
   }
 
+  // On demande à l'imprimante quel rouleau est chargé plutôt que de le supposer :
+  // un support déclaré différent de celui en place est refusé avec
+  // « mauvais type de rouleau ».
+  let support = null;
+  if (!demande.simulation) {
+    const lu = await etatImprimante.lireEtat(IMPRIMANTE);
+    if (lu.ok) {
+      support = lu.etat;
+      const bloquantes = support.erreurs.filter(e => !/occupée/.test(e));
+      if (support.typeCle === 'aucun' || bloquantes.length) {
+        return json(rep, 409, { ok: false,
+          erreur: 'Imprimante non prête : ' + (bloquantes.join(', ') || 'aucun rouleau chargé'),
+          support });
+      }
+      const largeurDemandee = demande.pages[0].largeurPoints || raster.POINTS_IMPRIMABLES_62;
+      if (support.pointsImprimables && largeurDemandee > support.pointsImprimables) {
+        return json(rep, 409, { ok: false,
+          erreur: `L'étiquette fait ${largeurDemandee} points de large, or le rouleau ` +
+                  `chargé (${support.libelle}) n'en imprime que ${support.pointsImprimables}. ` +
+                  `Choisissez la bonne largeur de rouleau dans les réglages.`,
+          support });
+      }
+    }
+  }
+
   let flux;
   try {
     const pages = demande.pages.map((p, i) => {
@@ -130,7 +156,13 @@ async function traiterImpression(req, rep) {
       }
       return { lignes: raster.centrerSurTete(bits, largeur, hauteur), hauteur };
     });
-    flux = raster.construireFlux(pages, demande.options || {});
+    const options = Object.assign({}, demande.options || {});
+    if (support) {
+      options.largeurMm = support.largeurMm;
+      options.longueurMm = support.longueurMm;
+      options.typeSupport = support.typeSupport;
+    }
+    flux = raster.construireFlux(pages, options);
   } catch (e) {
     return json(rep, 400, { ok: false, erreur: e.message });
   }
@@ -194,8 +226,16 @@ const serveur = http.createServer(async (req, rep) => {
   }
 
   if (chemin === '/etat' && req.method === 'GET') {
-    const etat = await testerImprimante();
-    return json(rep, 200, Object.assign({ imprimante: IMPRIMANTE, port: PORT_IMPRIMANTE }, etat));
+    const base = await testerImprimante();
+    const reponse = Object.assign({ imprimante: IMPRIMANTE, port: PORT_IMPRIMANTE }, base);
+    if (base.joignable) {
+      const lu = await etatImprimante.lireEtat(IMPRIMANTE);
+      if (lu.ok) {
+        reponse.support = lu.etat;
+        if (lu.etat.erreurs.length) reponse.avertissements = lu.etat.erreurs;
+      }
+    }
+    return json(rep, 200, reponse);
   }
 
   if (chemin === '/imprimer' && req.method === 'POST') return traiterImpression(req, rep);
@@ -281,6 +321,15 @@ async function demarrer() {
       console.log('   3. Cet ordinateur est sur le meme Wi-Fi que l\'imprimante');
       console.log('');
       console.log('  Le serveur demarre quand meme : corrigez, puis relancez-le.');
+    }
+  }
+
+  if (IMPRIMANTE) {
+    const lu = await etatImprimante.lireEtat(IMPRIMANTE);
+    if (lu.ok) {
+      console.log(`  Rouleau charge : ${lu.etat.libelle}` +
+        (lu.etat.pointsImprimables ? ` (${lu.etat.pointsImprimables} points imprimables)` : ''));
+      lu.etat.erreurs.forEach(e => console.log('  ATTENTION : ' + e));
     }
   }
 
