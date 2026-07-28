@@ -24,8 +24,29 @@ if errorlevel 1 (
 )
 
 if not exist "serveur.js" (
-  echo   Fichier serveur.js introuvable.
-  echo   Ce raccourci doit rester dans le dossier "imprimante-locale".
+  echo   ============================================================
+  echo     LE DOSSIER N'A PAS ETE DECOMPRESSE
+  echo   ============================================================
+  echo.
+  echo   Le fichier serveur.js est introuvable a cote de ce raccourci.
+  echo.
+  echo   Dossier actuel :
+  echo       %CD%
+  echo.
+  echo   C'est presque toujours la meme cause : le fichier ZIP a ete
+  echo   OUVERT au lieu d'etre DECOMPRESSE. Windows copie alors ce
+  echo   raccourci tout seul dans un dossier temporaire, sans les
+  echo   autres fichiers.
+  echo.
+  echo   A FAIRE :
+  echo    1. Retrouvez le fichier serveur-impression-dlc.zip
+  echo    2. CLIC DROIT dessus, puis "Extraire tout..."
+  echo    3. Choisissez le Bureau et validez
+  echo    4. Ouvrez le dossier extrait, puis "imprimante-locale"
+  echo    5. Double-cliquez sur demarrer.bat DEPUIS CE DOSSIER
+  echo.
+  echo   Le dossier doit contenir : serveur.js, raster.js,
+  echo   recherche.js et demarrer.bat
   echo.
   pause
   exit /b 1
