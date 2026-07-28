@@ -113,4 +113,19 @@ function lireEtat(ip, delai) {
   });
 }
 
-module.exports = { lireEtat, analyser, POINTS_IMPRIMABLES, PORT_IMPRIMANTE };
+/**
+ * Comme lireEtat, mais réessaie : une imprimante qui vient de refuser un travail
+ * reste parfois muette quelques secondes avant de répondre à nouveau.
+ */
+async function lireEtatAvecReprises(ip, tentatives) {
+  const n = tentatives || 3;
+  let dernier = null;
+  for (let i = 0; i < n; i++) {
+    dernier = await lireEtat(ip, 3000 + i * 2000);
+    if (dernier.ok) return dernier;
+    if (i < n - 1) await new Promise(r => setTimeout(r, 700));
+  }
+  return dernier;
+}
+
+module.exports = { lireEtat, lireEtatAvecReprises, analyser, POINTS_IMPRIMABLES, PORT_IMPRIMANTE };

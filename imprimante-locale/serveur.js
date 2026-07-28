@@ -126,7 +126,7 @@ async function traiterImpression(req, rep) {
   // « mauvais type de rouleau ».
   let support = null;
   if (!demande.simulation) {
-    const lu = await etatImprimante.lireEtat(IMPRIMANTE);
+    const lu = await etatImprimante.lireEtatAvecReprises(IMPRIMANTE, 2);
     if (lu.ok) {
       support = lu.etat;
       const bloquantes = support.erreurs.filter(e => !/occupée/.test(e));
@@ -242,6 +242,19 @@ const serveur = http.createServer(async (req, rep) => {
     return json(rep, 200, reponse);
   }
 
+  if (chemin === '/diagnostic' && req.method === 'GET') {
+    const lu = await etatImprimante.lireEtatAvecReprises(IMPRIMANTE, 3);
+    return json(rep, 200, {
+      imprimante: IMPRIMANTE,
+      version: VERSION,
+      lecture: lu.ok ? 'réussie' : 'échouée : ' + lu.erreur,
+      support: lu.ok ? lu.etat : null,
+      octetsBruts: lu.ok
+        ? lu.etat.brut.map(o => o.toString(16).padStart(2, '0')).join(' ')
+        : null
+    });
+  }
+
   if (chemin === '/imprimer' && req.method === 'POST') return traiterImpression(req, rep);
 
   json(rep, 404, { ok: false, erreur: 'route inconnue' });
@@ -335,7 +348,7 @@ async function demarrer() {
   }
 
   if (IMPRIMANTE) {
-    const lu = await etatImprimante.lireEtat(IMPRIMANTE);
+    const lu = await etatImprimante.lireEtatAvecReprises(IMPRIMANTE);
     if (lu.ok) {
       console.log(`  Rouleau charge : ${lu.etat.libelle}` +
         (lu.etat.pointsImprimables ? ` (${lu.etat.pointsImprimables} points imprimables)` : ''));
