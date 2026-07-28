@@ -19,6 +19,10 @@ const etatImprimante = require('./etat');
 
 const PORT_IMPRIMANTE = 9100;
 
+// Affiché au démarrage : permet de vérifier d'un coup d'œil quelle version
+// tourne réellement, et d'écarter le cas d'une ancienne archive relancée.
+const VERSION = 'v6 — lecture du rouleau';
+
 function lireOption(nom, valeurParDefaut) {
   const i = process.argv.indexOf('--' + nom);
   if (i !== -1 && process.argv[i + 1]) return process.argv[i + 1];
@@ -281,6 +285,7 @@ async function demarrer() {
   console.log('');
   console.log('  ===========================================');
   console.log('    SERVEUR D\'IMPRESSION DES ETIQUETTES DLC');
+  console.log(`    ${VERSION}`);
   console.log('  ===========================================');
   console.log('');
 
@@ -335,7 +340,12 @@ async function demarrer() {
       console.log(`  Rouleau charge : ${lu.etat.libelle}` +
         (lu.etat.pointsImprimables ? ` (${lu.etat.pointsImprimables} points imprimables)` : ''));
       lu.etat.erreurs.forEach(e => console.log('  ATTENTION : ' + e));
+    } else {
+      console.log(`  Rouleau charge : lecture impossible (${lu.erreur})`);
+      console.log('  L\'impression sera tentee avec les valeurs par defaut.');
     }
+  } else {
+    console.log('  Rouleau charge : inconnu, aucune imprimante detectee.');
   }
 
   console.log('');
