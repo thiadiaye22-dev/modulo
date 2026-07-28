@@ -244,6 +244,11 @@ const serveur = http.createServer(async (req, rep) => {
 });
 
 // L'application est cherchée à côté du serveur, puis dans public/ du dépôt.
+serveur.on('error', (e) => {
+  if (e && e.code === 'EADDRINUSE') return;   // traité au démarrage
+  console.error('  Erreur du serveur : ' + e.message);
+});
+
 function trouverApplication() {
   const candidats = [
     path.join(__dirname, 'etiquettes-dlc.html'),
@@ -334,7 +339,37 @@ async function demarrer() {
   }
 
   console.log('');
-  await new Promise(res => serveur.listen(PORT, '0.0.0.0', res));
+
+  // Un second serveur lancé sans avoir fermé le premier échouerait sur
+  // EADDRINUSE avec une trace technique illisible : on l'explique en clair.
+  try {
+    await new Promise((res, rej) => {
+      const surErreur = (e) => { serveur.removeListener('error', surErreur); rej(e); };
+      serveur.once('error', surErreur);
+      serveur.listen(PORT, '0.0.0.0', () => { serveur.removeListener('error', surErreur); res(); });
+    });
+  } catch (e) {
+    if (e && e.code === 'EADDRINUSE') {
+      console.log('  ============================================================');
+      console.log('    UN SERVEUR D\'IMPRESSION TOURNE DEJA');
+      console.log('  ============================================================');
+      console.log('');
+      console.log(`  Le port ${PORT} est deja utilise : une autre fenetre noire`);
+      console.log('  est encore ouverte quelque part.');
+      console.log('');
+      console.log('  A FAIRE :');
+      console.log('   1. Fermez TOUTES les autres fenetres noires');
+      console.log('      "Serveur d\'impression des etiquettes DLC"');
+      console.log('   2. Relancez demarrer.bat');
+      console.log('');
+      console.log('  Important : l\'ancienne fenetre fait tourner l\'ANCIENNE');
+      console.log('  version. Tant qu\'elle est ouverte, la tablette lui parle');
+      console.log('  a elle, et les corrections ne s\'appliquent pas.');
+      console.log('');
+      return;
+    }
+    throw e;
+  }
 
   const adresses = adressesLocales();
   console.log('  OUVREZ CETTE ADRESSE DANS LE NAVIGATEUR DE LA TABLETTE :');
