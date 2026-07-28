@@ -3015,9 +3015,45 @@ function imprimerEtiquettes(items, cfgOverride) {
   const corps = items.map(it => genererEtiquetteThermique(it, cfg, largeurUtile)).join('');
   const css = cfg.mode === 'a4' ? cssEtiquettesA4() : cssEtiquettesThermiques(largeur, hauteur, marge);
 
+  const docHTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+    <title>Étiquettes DLC</title><style>${css}</style></head><body>${corps}</body></html>`;
+
+  lancerImpression(docHTML, (doc) => {
+    // Hauteur auto sur rouleau continu : on mesure le rendu réel et on fige @page
+    // sur la plus haute étiquette, pour que toutes sortent au même format.
+    if (cfg.mode === 'ql' && hauteur === null) {
+      let max = 0;
+      doc.querySelectorAll('.etq').forEach(e => { max = Math.max(max, e.getBoundingClientRect().height); });
+      const mm = Math.max(20, Math.ceil((max / 96) * 25.4) + 2);   // 96 px = 1 pouce, +2 mm de sécurité
+      const style = doc.createElement('style');
+      style.textContent = `@page { size: ${largeur}mm ${mm}mm; margin:0; } .etq { height:${mm}mm; }`;
+      doc.head.appendChild(style);
+    }
+
+    // Hauteur imposée : on réduit le contenu s'il ne tient pas, et on prévient
+    // l'utilisateur si la réduction devient trop forte pour rester lisible.
+    if (cfg.mode === 'ql' && hauteur !== null) {
+      const echelle = ajusterEtiquettes(doc);
+      if (echelle <= ECHELLE_MINI) {
+        return confirm(
+          `⚠️ Le contenu ne tient pas sur une étiquette de ${hauteur} mm et devrait être trop réduit pour rester lisible.\n\n` +
+          `Passez en hauteur « Auto », choisissez un format plus grand, ou décochez des éléments (code-barres, jours restants).\n\n` +
+          `Imprimer quand même ?`);
+      }
+    }
+    return true;
+  });
+}
+
+// Lanceur d'impression commun aux étiquettes et à la calibration.
+// `apresRendu(doc)` peut ajuster le document avant impression ; s'il renvoie false,
+// l'impression est annulée.
+function lancerImpression(docHTML, apresRendu) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
+  // Hors écran mais avec des dimensions réelles : un iframe de taille nulle ou en
+  // visibility:hidden n'est pas imprimable de façon fiable selon les navigateurs.
+  iframe.style.cssText = 'position:fixed; left:-10000px; top:0; width:120mm; height:250mm; border:0;';
   document.body.appendChild(iframe);
 
   let termine = false;
@@ -3028,47 +3064,48 @@ function imprimerEtiquettes(items, cfgOverride) {
   };
 
   iframe.onload = () => {
-    const win = iframe.contentWindow;
-    const doc = iframe.contentDocument;
+    let win, doc;
     try {
-      // Hauteur auto sur rouleau continu : on mesure le rendu réel et on fige @page
-      // sur la plus haute étiquette, pour que toutes sortent au même format.
-      if (cfg.mode === 'ql' && hauteur === null) {
-        let max = 0;
-        doc.querySelectorAll('.etq').forEach(e => { max = Math.max(max, e.getBoundingClientRect().height); });
-        const mm = Math.max(20, Math.ceil((max / 96) * 25.4) + 2);   // 96 px = 1 pouce, +2 mm de sécurité
-        const style = doc.createElement('style');
-        style.textContent = `@page { size: ${largeur}mm ${mm}mm; margin:0; } .etq { height:${mm}mm; }`;
-        doc.head.appendChild(style);
-      }
+      // Ces accès peuvent être refusés par le navigateur (fichier ouvert en local,
+      // politique d'origine). Ils doivent donc être protégés, sinon l'échec est
+      // silencieux et le clic sur Imprimer ne fait visiblement rien.
+      win = iframe.contentWindow;
+      doc = iframe.contentDocument || (win && win.document);
+      if (!doc || !win) throw new Error("le navigateur a refusé l'accès au document d'impression");
 
-      // Hauteur imposée : on réduit le contenu s'il ne tient pas, et on prévient
-      // l'utilisateur si la réduction devient trop forte pour rester lisible.
-      if (cfg.mode === 'ql' && hauteur !== null) {
-        const echelle = ajusterEtiquettes(doc);
-        if (echelle <= ECHELLE_MINI) {
-          const suite = confirm(
-            `⚠️ Le contenu ne tient pas sur une étiquette de ${hauteur} mm et devrait être trop réduit pour rester lisible.\n\n` +
-            `Passez en hauteur « Auto », choisissez un format plus grand, ou décochez des éléments (code-barres, jours restants).\n\n` +
-            `Imprimer quand même ?`);
-          if (!suite) { nettoyer(); return; }
-        }
-      }
+      if (apresRendu && apresRendu(doc, win) === false) { nettoyer(); return; }
 
       win.onafterprint = nettoyer;
       win.focus();
       win.print();
+      // Filet de sécurité : certains navigateurs n'émettent pas onafterprint.
+      setTimeout(nettoyer, 60000);
     } catch (e) {
-      alert('❌ Impression impossible : ' + e.message);
       nettoyer();
-      return;
+      impressionDeSecours(docHTML, e);
     }
-    // Filet de sécurité : certains navigateurs n'émettent pas onafterprint.
-    setTimeout(nettoyer, 60000);
   };
 
-  iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-    <title>Étiquettes DLC</title><style>${css}</style></head><body>${corps}</body></html>`;
+  iframe.srcdoc = docHTML;
+}
+
+// Repli : une fenêtre séparée n'a pas les restrictions d'accès inter-documents
+// qui peuvent bloquer l'iframe quand la page est ouverte depuis un fichier local.
+function impressionDeSecours(docHTML, erreur) {
+  let w = null;
+  try { w = window.open('', '_blank', 'width=460,height=700'); } catch (e) {}
+  if (!w) {
+    alert("❌ Impression impossible : " + (erreur && erreur.message ? erreur.message : 'erreur inconnue') +
+      "\n\nLa fenêtre d'impression de secours a également été bloquée.\n" +
+      "Autorisez les fenêtres pop-up pour cette page, puis réessayez.");
+    return;
+  }
+  w.document.open();
+  w.document.write(docHTML);
+  w.document.close();
+  w.focus();
+  // Laisser le temps au rendu et aux polices avant d'ouvrir la boîte d'impression.
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
 }
 
 // ---- Panneau de réglages ----
@@ -3162,17 +3199,8 @@ document.getElementById('cfg-test').addEventListener('click', () => {
     .cal-txt { font-size:6.5pt; margin-top:.4mm; }
     .cal-info { font-size:6.5pt; margin-top:1mm; line-height:1.3; }`;
 
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
-  document.body.appendChild(iframe);
-  iframe.onload = () => {
-    iframe.contentWindow.onafterprint = () => setTimeout(() => iframe.remove(), 300);
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-    setTimeout(() => iframe.remove(), 60000);
-  };
-  iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-    <title>Calibration</title><style>${css}</style></head><body>${corps}</body></html>`;
+  lancerImpression(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+    <title>Calibration</title><style>${css}</style></head><body>${corps}</body></html>`);
 });
 
 appliquerConfigAuFormulaire();
