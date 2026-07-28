@@ -2916,85 +2916,103 @@ function ajusterEtiquettes(doc) {
   return pire;
 }
 
-function cssEtiquettesThermiques(largeurMm, hauteurMm, margeMm) {
-  // `size: <largeur> auto` n'est pas honoré par les navigateurs : la page retomberait
-  // en A4/Letter. En hauteur auto, on pose donc une hauteur provisoire — imprimerEtiquettes()
-  // la remplace par la hauteur mesurée juste avant d'appeler print().
-  const regleHauteur = `${largeurMm}mm ${hauteurMm || 100}mm`;
+// `P` = sélecteur du conteneur quand les étiquettes sont rendues dans la page
+// courante ; chaîne vide quand elles occupent un document dédié (aperçu).
+function reglesEtiquettesThermiques(largeurMm, hauteurMm, margeMm, P) {
+  const s = P ? P + ' ' : '';
   return `
-    @page { size: ${regleHauteur}; margin: 0; }
-    * { margin:0; padding:0; box-sizing:border-box;
+    ${P ? `${P}, ${P} *` : '*'} { margin:0; padding:0; box-sizing:border-box;
         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    html, body { width:${largeurMm}mm; background:#fff; color:#000;
+    ${P || 'html, body'} { width:${largeurMm}mm; background:#fff; color:#000;
       font-family:"Arial Narrow","Liberation Sans Narrow",Arial,Helvetica,sans-serif;
       -webkit-font-smoothing:none; }
-    .etq {
+    ${s}.etq {
       width:${largeurMm}mm; ${hauteurMm ? `height:${hauteurMm}mm;` : ''}
       padding:1.5mm ${margeMm}mm; overflow:hidden;
       page-break-after:always; break-after:page; page-break-inside:avoid; break-inside:avoid;
     }
-    .etq:last-child { page-break-after:auto; break-after:auto; }
-    .etq-in { width:100%; height:100%; display:flex; flex-direction:column; transform-origin:top left; }
-    .e-ent { font-size:6.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.4pt;
+    ${s}.etq:last-child { page-break-after:auto; break-after:auto; }
+    ${s}.etq-in { width:100%; height:100%; display:flex; flex-direction:column; transform-origin:top left; }
+    ${s}.e-ent { font-size:6.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.4pt;
       border-bottom:.5mm solid #000; padding-bottom:.6mm; }
-    .e-nom { font-size:14pt; font-weight:900; text-transform:uppercase; line-height:1.05;
+    ${s}.e-nom { font-size:14pt; font-weight:900; text-transform:uppercase; line-height:1.05;
       margin-top:1.2mm; word-wrap:break-word; }
-    .e-nom.long { font-size:11pt; }
-    .e-nom.tres-long { font-size:8.5pt; }
-    .e-info { font-size:7.5pt; line-height:1.35; margin-top:.9mm; }
-    .e-info b { font-weight:700; }
-    .e-alerte { margin-top:1mm; padding:.7mm 1mm; border:.4mm solid #000;
+    ${s}.e-nom.long { font-size:11pt; }
+    ${s}.e-nom.tres-long { font-size:8.5pt; }
+    ${s}.e-info { font-size:7.5pt; line-height:1.35; margin-top:.9mm; }
+    ${s}.e-info b { font-weight:700; }
+    ${s}.e-alerte { margin-top:1mm; padding:.7mm 1mm; border:.4mm solid #000;
       font-size:7pt; font-weight:900; text-align:center; }
-    .e-allerg { margin-top:1.2mm; padding:.8mm 1mm; border:.4mm solid #000;
+    ${s}.e-allerg { margin-top:1.2mm; padding:.8mm 1mm; border:.4mm solid #000;
       font-size:7pt; font-weight:700; text-transform:uppercase; line-height:1.3; }
-    .e-dlc { margin-top:1.4mm; background:#000; color:#fff; text-align:center; padding:1mm .5mm; }
-    .e-dlc.urgent { border:.8mm solid #000; }
-    .e-dlc-lib { font-size:6pt; text-transform:uppercase; letter-spacing:.6pt; }
-    .e-dlc-date { font-size:18pt; font-weight:900; letter-spacing:.5pt; line-height:1.15; }
-    .e-dlc-j { font-size:7pt; font-weight:700; letter-spacing:1pt; }
-    .e-cb { margin-top:1.2mm; text-align:center; }
-    .e-cb svg { display:block; margin:0 auto; }
-    .e-cb-txt { font-size:6pt; letter-spacing:1.2pt; font-family:"Courier New",monospace; margin-top:.3mm; }
-    .e-bas { margin-top:auto; padding-top:1mm; border-top:.3mm solid #000;
+    ${s}.e-dlc { margin-top:1.4mm; background:#000; color:#fff; text-align:center; padding:1mm .5mm; }
+    ${s}.e-dlc.urgent { border:.8mm solid #000; }
+    ${s}.e-dlc-lib { font-size:6pt; text-transform:uppercase; letter-spacing:.6pt; }
+    ${s}.e-dlc-date { font-size:18pt; font-weight:900; letter-spacing:.5pt; line-height:1.15; }
+    ${s}.e-dlc-j { font-size:7pt; font-weight:700; letter-spacing:1pt; }
+    ${s}.e-cb { margin-top:1.2mm; text-align:center; }
+    ${s}.e-cb svg { display:block; margin:0 auto; }
+    ${s}.e-cb-txt { font-size:6pt; letter-spacing:1.2pt; font-family:"Courier New",monospace; margin-top:.3mm; }
+    ${s}.e-bas { margin-top:auto; padding-top:1mm; border-top:.3mm solid #000;
       font-size:6pt; display:flex; justify-content:space-between; gap:2mm; }
   `;
 }
 
+// Document dédié (aperçu en iframe) : règles non limitées + format de page.
+// `size: <largeur> auto` n'est pas honoré par les navigateurs — la page retomberait
+// en A4/Letter — d'où la hauteur provisoire remplacée avant impression.
+function cssEtiquettesThermiques(largeurMm, hauteurMm, margeMm) {
+  return `@page { size: ${largeurMm}mm ${hauteurMm || 100}mm; margin: 0; }\n` +
+    reglesEtiquettesThermiques(largeurMm, hauteurMm, margeMm, '');
+}
+
 // Mode repli : plusieurs étiquettes par feuille A4, pour une imprimante bureautique.
-function cssEtiquettesA4() {
+function reglesEtiquettesA4(P) {
+  const s = P ? P + ' ' : '';
   return `
-    @page { size: A4; margin: 8mm; }
-    * { margin:0; padding:0; box-sizing:border-box;
+    ${P ? `${P}, ${P} *` : '*'} { margin:0; padding:0; box-sizing:border-box;
         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { background:#fff; color:#000; font-family:Arial,Helvetica,sans-serif;
+    ${P || 'body'} { background:#fff; color:#000; font-family:Arial,Helvetica,sans-serif;
       display:flex; flex-wrap:wrap; gap:4mm; align-content:flex-start; }
     /* flex:0 0 auto — sans quoi les étiquettes se compriment sous 62 mm dans la rangée */
-    .etq { flex:0 0 auto; width:62mm; min-height:50mm; padding:3mm; border:.4mm solid #000;
+    ${s}.etq { flex:0 0 auto; width:62mm; min-height:50mm; padding:3mm; border:.4mm solid #000;
       page-break-inside:avoid; break-inside:avoid; }
-    .etq-in { display:flex; flex-direction:column; height:100%; }
-    .e-ent { font-size:7pt; font-weight:700; text-transform:uppercase; letter-spacing:.4pt;
+    ${s}.etq-in { display:flex; flex-direction:column; height:100%; }
+    ${s}.e-ent { font-size:7pt; font-weight:700; text-transform:uppercase; letter-spacing:.4pt;
       border-bottom:.4mm solid #000; padding-bottom:.8mm; }
-    .e-nom { font-size:14pt; font-weight:900; text-transform:uppercase; line-height:1.05; margin-top:1.5mm; }
-    .e-nom.long { font-size:11pt; } .e-nom.tres-long { font-size:9pt; }
-    .e-info { font-size:8pt; line-height:1.4; margin-top:1mm; }
-    .e-alerte { margin-top:1mm; padding:1mm; border:.4mm solid #000; font-size:7.5pt; font-weight:900; text-align:center; }
-    .e-allerg { margin-top:1.5mm; padding:1mm; border:.4mm solid #000; font-size:7.5pt; font-weight:700; text-transform:uppercase; }
-    .e-dlc { margin-top:2mm; background:#000; color:#fff; text-align:center; padding:1.5mm; }
-    .e-dlc-lib { font-size:6.5pt; text-transform:uppercase; letter-spacing:.6pt; }
-    .e-dlc-date { font-size:18pt; font-weight:900; }
-    .e-dlc-j { font-size:7.5pt; font-weight:700; letter-spacing:1pt; }
-    .e-cb { margin-top:1.5mm; text-align:center; }
-    .e-cb svg { display:block; margin:0 auto; }
-    .e-cb-txt { font-size:6.5pt; letter-spacing:1.2pt; font-family:"Courier New",monospace; }
-    .e-bas { margin-top:auto; padding-top:1.5mm; border-top:.3mm solid #000;
+    ${s}.e-nom { font-size:14pt; font-weight:900; text-transform:uppercase; line-height:1.05; margin-top:1.5mm; }
+    ${s}.e-nom.long { font-size:11pt; } .e-nom.tres-long { font-size:9pt; }
+    ${s}.e-info { font-size:8pt; line-height:1.4; margin-top:1mm; }
+    ${s}.e-alerte { margin-top:1mm; padding:1mm; border:.4mm solid #000; font-size:7.5pt; font-weight:900; text-align:center; }
+    ${s}.e-allerg { margin-top:1.5mm; padding:1mm; border:.4mm solid #000; font-size:7.5pt; font-weight:700; text-transform:uppercase; }
+    ${s}.e-dlc { margin-top:2mm; background:#000; color:#fff; text-align:center; padding:1.5mm; }
+    ${s}.e-dlc-lib { font-size:6.5pt; text-transform:uppercase; letter-spacing:.6pt; }
+    ${s}.e-dlc-date { font-size:18pt; font-weight:900; }
+    ${s}.e-dlc-j { font-size:7.5pt; font-weight:700; letter-spacing:1pt; }
+    ${s}.e-cb { margin-top:1.5mm; text-align:center; }
+    ${s}.e-cb svg { display:block; margin:0 auto; }
+    ${s}.e-cb-txt { font-size:6.5pt; letter-spacing:1.2pt; font-family:"Courier New",monospace; }
+    ${s}.e-bas { margin-top:auto; padding-top:1.5mm; border-top:.3mm solid #000;
       font-size:6.5pt; display:flex; justify-content:space-between; }
   `;
 }
 
-// Lance l'impression dans un iframe isolé.
+function cssEtiquettesA4() {
+  return `@page { size: A4; margin: 8mm; }\n` + reglesEtiquettesA4('');
+}
+
+// Lance l'impression des étiquettes.
+//
+// Les étiquettes sont rendues dans un conteneur de la page courante, et une règle
+// @media print masque tout le reste. On n'utilise PAS d'iframe : sur Chrome Android,
+// print() appelé depuis un iframe imprime la page parente, ce qui sortait toute
+// l'interface de l'application sur le rouleau au lieu des seules étiquettes.
+//
 // Sur rouleau continu en hauteur « auto », on mesure d'abord la plus haute étiquette
-// puis on fige @page à cette hauteur : toutes les étiquettes sortent identiques et
-// le massicot coupe au bon endroit.
+// puis on fige @page à cette hauteur : toutes sortent identiques et le massicot
+// coupe au bon endroit.
+const ID_ZONE_IMPRESSION = 'zone-impression-etiquettes';
+
 function imprimerEtiquettes(items, cfgOverride) {
   const cfg = Object.assign(lireConfigImpression(), cfgOverride || {});
   if (!items.length) { alert('Aucune étiquette à imprimer.'); return; }
@@ -3013,99 +3031,115 @@ function imprimerEtiquettes(items, cfgOverride) {
   }
 
   const corps = items.map(it => genererEtiquetteThermique(it, cfg, largeurUtile)).join('');
-  const css = cfg.mode === 'a4' ? cssEtiquettesA4() : cssEtiquettesThermiques(largeur, hauteur, marge);
 
-  const docHTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-    <title>Étiquettes DLC</title><style>${css}</style></head><body>${corps}</body></html>`;
+  lancerImpression({
+    corps,
+    largeur,
+    hauteurPage: hauteur,
+    modeA4: cfg.mode === 'a4',
+    marge,
+    avantImpression: (zone, poserPage) => {
+      if (cfg.mode === 'a4') return true;
 
-  lancerImpression(docHTML, (doc) => {
-    // Hauteur auto sur rouleau continu : on mesure le rendu réel et on fige @page
-    // sur la plus haute étiquette, pour que toutes sortent au même format.
-    if (cfg.mode === 'ql' && hauteur === null) {
-      let max = 0;
-      doc.querySelectorAll('.etq').forEach(e => { max = Math.max(max, e.getBoundingClientRect().height); });
-      const mm = Math.max(20, Math.ceil((max / 96) * 25.4) + 2);   // 96 px = 1 pouce, +2 mm de sécurité
-      const style = doc.createElement('style');
-      style.textContent = `@page { size: ${largeur}mm ${mm}mm; margin:0; } .etq { height:${mm}mm; }`;
-      doc.head.appendChild(style);
-    }
+      // Hauteur auto : on mesure le rendu réel et on fige le format de page.
+      if (hauteur === null) {
+        let max = 0;
+        zone.querySelectorAll('.etq').forEach(e => { max = Math.max(max, e.getBoundingClientRect().height); });
+        const mm = Math.max(20, Math.ceil((max / 96) * 25.4) + 2);   // 96 px = 1 pouce, +2 mm de sécurité
+        poserPage(largeur, mm);
+        zone.querySelectorAll('.etq').forEach(e => { e.style.height = mm + 'mm'; });
+        return true;
+      }
 
-    // Hauteur imposée : on réduit le contenu s'il ne tient pas, et on prévient
-    // l'utilisateur si la réduction devient trop forte pour rester lisible.
-    if (cfg.mode === 'ql' && hauteur !== null) {
-      const echelle = ajusterEtiquettes(doc);
+      // Hauteur imposée : on réduit le contenu s'il ne tient pas, et on prévient
+      // l'utilisateur si la réduction devient trop forte pour rester lisible.
+      const echelle = ajusterEtiquettes(zone);
       if (echelle <= ECHELLE_MINI) {
         return confirm(
           `⚠️ Le contenu ne tient pas sur une étiquette de ${hauteur} mm et devrait être trop réduit pour rester lisible.\n\n` +
           `Passez en hauteur « Auto », choisissez un format plus grand, ou décochez des éléments (code-barres, jours restants).\n\n` +
           `Imprimer quand même ?`);
       }
+      return true;
     }
-    return true;
   });
 }
 
-// Lanceur d'impression commun aux étiquettes et à la calibration.
-// `apresRendu(doc)` peut ajuster le document avant impression ; s'il renvoie false,
-// l'impression est annulée.
-function lancerImpression(docHTML, apresRendu) {
-  const iframe = document.createElement('iframe');
-  iframe.setAttribute('aria-hidden', 'true');
-  // Hors écran mais avec des dimensions réelles : un iframe de taille nulle ou en
-  // visibility:hidden n'est pas imprimable de façon fiable selon les navigateurs.
-  iframe.style.cssText = 'position:fixed; left:-10000px; top:0; width:120mm; height:250mm; border:0;';
-  document.body.appendChild(iframe);
+// Rend `corps` dans la page, masque tout le reste à l'impression, imprime, nettoie.
+// `avantImpression(zone, poserPage)` peut ajuster le rendu ; renvoyer false annule.
+function lancerImpression(o) {
+  nettoyerZoneImpression();
 
-  let termine = false;
-  const nettoyer = () => {
-    if (termine) return;
-    termine = true;
-    setTimeout(() => iframe.remove(), 300);
+  const P = '#' + ID_ZONE_IMPRESSION;
+  const zone = document.createElement('div');
+  zone.id = ID_ZONE_IMPRESSION;
+  // Hors écran mais avec une mise en page réelle, pour pouvoir mesurer les étiquettes.
+  // En mode A4 la zone doit faire la largeur utile d'une feuille, pas celle du rouleau.
+  const largeurZone = o.modeA4 ? 194 : o.largeur;
+  zone.style.cssText = `position:fixed; left:-10000px; top:0; width:${largeurZone}mm; z-index:-1;`;
+  zone.innerHTML = o.corps;
+
+  const styleRendu = document.createElement('style');
+  styleRendu.id = ID_ZONE_IMPRESSION + '-rendu';
+  styleRendu.textContent = (o.modeA4
+    ? reglesEtiquettesA4(P)
+    : reglesEtiquettesThermiques(o.largeur, o.hauteurPage, o.marge, P))
+    + (o.cssSupplementaire || '');
+
+  // Bloc dédié au format de page, remplacé après mesure en hauteur auto.
+  const stylePage = document.createElement('style');
+  stylePage.id = ID_ZONE_IMPRESSION + '-page';
+  const poserPage = (l, h) => {
+    stylePage.textContent = o.modeA4
+      ? '@media print { @page { size: A4; margin: 8mm; } }'
+      : `@media print { @page { size: ${l}mm ${h}mm; margin: 0; } }`;
   };
+  poserPage(o.largeur, o.hauteurPage || 100);
 
-  iframe.onload = () => {
-    let win, doc;
-    try {
-      // Ces accès peuvent être refusés par le navigateur (fichier ouvert en local,
-      // politique d'origine). Ils doivent donc être protégés, sinon l'échec est
-      // silencieux et le clic sur Imprimer ne fait visiblement rien.
-      win = iframe.contentWindow;
-      doc = iframe.contentDocument || (win && win.document);
-      if (!doc || !win) throw new Error("le navigateur a refusé l'accès au document d'impression");
+  // Masquage du reste de la page à l'impression uniquement.
+  const styleMasque = document.createElement('style');
+  styleMasque.id = ID_ZONE_IMPRESSION + '-masque';
+  styleMasque.textContent = `
+    @media print {
+      html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
+      body > *:not(${P}) { display:none !important; }
+      /* Pas de display forcé ici : le mode A4 a besoin de garder son display:flex. */
+      ${P} { position:static !important; left:auto !important; top:auto !important;
+             z-index:auto !important; }
+    }`;
 
-      if (apresRendu && apresRendu(doc, win) === false) { nettoyer(); return; }
+  document.head.appendChild(styleRendu);
+  document.head.appendChild(stylePage);
+  document.head.appendChild(styleMasque);
+  document.body.appendChild(zone);
 
-      win.onafterprint = nettoyer;
-      win.focus();
-      win.print();
-      // Filet de sécurité : certains navigateurs n'émettent pas onafterprint.
-      setTimeout(nettoyer, 60000);
-    } catch (e) {
-      nettoyer();
-      impressionDeSecours(docHTML, e);
-    }
-  };
-
-  iframe.srcdoc = docHTML;
-}
-
-// Repli : une fenêtre séparée n'a pas les restrictions d'accès inter-documents
-// qui peuvent bloquer l'iframe quand la page est ouverte depuis un fichier local.
-function impressionDeSecours(docHTML, erreur) {
-  let w = null;
-  try { w = window.open('', '_blank', 'width=460,height=700'); } catch (e) {}
-  if (!w) {
-    alert("❌ Impression impossible : " + (erreur && erreur.message ? erreur.message : 'erreur inconnue') +
-      "\n\nLa fenêtre d'impression de secours a également été bloquée.\n" +
-      "Autorisez les fenêtres pop-up pour cette page, puis réessayez.");
+  let annule = false;
+  try {
+    if (o.avantImpression && o.avantImpression(zone, poserPage) === false) annule = true;
+  } catch (e) {
+    nettoyerZoneImpression();
+    alert('❌ Préparation de l\'impression impossible : ' + e.message);
     return;
   }
-  w.document.open();
-  w.document.write(docHTML);
-  w.document.close();
-  w.focus();
-  // Laisser le temps au rendu et aux polices avant d'ouvrir la boîte d'impression.
-  setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
+  if (annule) { nettoyerZoneImpression(); return; }
+
+  const fin = () => { window.removeEventListener('afterprint', fin); nettoyerZoneImpression(); };
+  window.addEventListener('afterprint', fin);
+  // Filet de sécurité : certains navigateurs n'émettent pas afterprint.
+  setTimeout(fin, 60000);
+
+  try {
+    window.print();
+  } catch (e) {
+    nettoyerZoneImpression();
+    alert('❌ Impression impossible : ' + e.message);
+  }
+}
+
+function nettoyerZoneImpression() {
+  [ID_ZONE_IMPRESSION, ID_ZONE_IMPRESSION + '-rendu', ID_ZONE_IMPRESSION + '-page',
+   ID_ZONE_IMPRESSION + '-masque', ID_ZONE_IMPRESSION + '-cal']
+    .forEach(id => { const e = document.getElementById(id); if (e) e.remove(); });
 }
 
 // ---- Panneau de réglages ----
@@ -3192,15 +3226,16 @@ document.getElementById('cfg-test').addEventListener('click', () => {
       <div class="e-cb">${code128SVG('CALIBRATION', largeur - marge * 2, 8)}<div class="e-cb-txt">CALIBRATION</div></div>
     </div>`;
 
-  const css = cssEtiquettesThermiques(largeur, hauteur, marge) + `
-    .cal-titre { font-size:12pt; font-weight:900; letter-spacing:2pt; text-align:center; margin-top:1.5mm; }
-    .cal-regle { margin-top:1.5mm; }
-    .cal-barre { width:50mm; height:1.2mm; background:#000; }
-    .cal-txt { font-size:6.5pt; margin-top:.4mm; }
-    .cal-info { font-size:6.5pt; margin-top:1mm; line-height:1.3; }`;
-
-  lancerImpression(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-    <title>Calibration</title><style>${css}</style></head><body>${corps}</body></html>`);
+  const P = '#' + ID_ZONE_IMPRESSION;
+  lancerImpression({
+    corps, largeur, hauteurPage: hauteur, marge, modeA4: false,
+    cssSupplementaire: `
+      ${P} .cal-titre { font-size:12pt; font-weight:900; letter-spacing:2pt; text-align:center; margin-top:1.5mm; }
+      ${P} .cal-regle { margin-top:1.5mm; }
+      ${P} .cal-barre { width:50mm; height:1.2mm; background:#000; }
+      ${P} .cal-txt { font-size:6.5pt; margin-top:.4mm; }
+      ${P} .cal-info { font-size:6.5pt; margin-top:1mm; line-height:1.3; }`
+  });
 });
 
 appliquerConfigAuFormulaire();
