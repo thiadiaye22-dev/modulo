@@ -12,6 +12,7 @@
 const http = require('http');
 const net = require('net');
 const raster = require('./raster');
+const recherche = require('./recherche');
 
 const PORT_IMPRIMANTE = 9100;
 
@@ -22,7 +23,8 @@ function lireOption(nom, valeurParDefaut) {
   return env || valeurParDefaut;
 }
 
-const IMPRIMANTE = lireOption('imprimante', '192.168.1.46');
+// L'adresse peut être fournie ; sinon le serveur cherche l'imprimante tout seul.
+let IMPRIMANTE = lireOption('imprimante', '');
 const PORT = parseInt(lireOption('port', '3001'), 10);
 
 // --- Envoi TCP ---
@@ -179,22 +181,6 @@ const serveur = http.createServer(async (req, rep) => {
   json(rep, 404, { ok: false, erreur: 'route inconnue' });
 });
 
-serveur.listen(PORT, '0.0.0.0', () => {
-  console.log('');
-  console.log('  Serveur d\'impression DLC démarré');
-  console.log('  ---------------------------------');
-  console.log(`  Imprimante : ${IMPRIMANTE}:${PORT_IMPRIMANTE}`);
-  console.log(`  À saisir dans l'application HACCP :`);
-  adressesLocales().forEach(a => console.log(`      http://${a}:${PORT}`));
-  console.log('');
-  testerImprimante().then(e => {
-    console.log(e.joignable
-      ? '  ✓ Imprimante joignable.'
-      : `  ✗ Imprimante injoignable (${e.detail}). Vérifiez son adresse IP et le Wi-Fi.`);
-    console.log('');
-  });
-});
-
 function adressesLocales() {
   const interfaces = require('os').networkInterfaces();
   const sorties = [];
@@ -205,3 +191,74 @@ function adressesLocales() {
   });
   return sorties.length ? sorties : ['localhost'];
 }
+
+const encadre = (lignes) => {
+  const largeur = Math.max.apply(null, lignes.map(l => l.length)) + 4;
+  console.log('  +' + '-'.repeat(largeur) + '+');
+  lignes.forEach(l => console.log('  |  ' + l + ' '.repeat(largeur - l.length - 2) + '|'));
+  console.log('  +' + '-'.repeat(largeur) + '+');
+};
+
+// Démarrage guidé : on cherche l'imprimante si son adresse n'a pas été fournie,
+// puis on affiche en clair l'adresse à recopier sur la tablette.
+async function demarrer() {
+  console.log('');
+  console.log('  ===========================================');
+  console.log('    SERVEUR D\'IMPRESSION DES ETIQUETTES DLC');
+  console.log('  ===========================================');
+  console.log('');
+
+  if (IMPRIMANTE) {
+    process.stdout.write(`  Verification de l'imprimante ${IMPRIMANTE} ... `);
+    const ok = await recherche.testerAdresse(IMPRIMANTE, 2000);
+    console.log(ok ? 'trouvee.' : 'pas de reponse.');
+    if (!ok) IMPRIMANTE = '';
+  }
+
+  if (!IMPRIMANTE) {
+    console.log('  Recherche de l\'imprimante sur le reseau, patientez...');
+    console.log('');
+    const trouvees = await recherche.chercherImprimantes(t => console.log('    ' + t));
+    console.log('');
+    if (trouvees.length === 1) {
+      IMPRIMANTE = trouvees[0];
+      console.log(`  Imprimante trouvee : ${IMPRIMANTE}`);
+    } else if (trouvees.length > 1) {
+      IMPRIMANTE = trouvees[0];
+      console.log('  Plusieurs imprimantes trouvees : ' + trouvees.join(', '));
+      console.log(`  La premiere est retenue (${IMPRIMANTE}).`);
+      console.log('  Pour en choisir une autre, relancez avec :');
+      console.log(`      node serveur.js --imprimante ${trouvees[1]}`);
+    } else {
+      console.log('  AUCUNE IMPRIMANTE TROUVEE.');
+      console.log('');
+      console.log('  A verifier :');
+      console.log('   1. L\'imprimante est allumee');
+      console.log('   2. Elle est connectee en Wi-Fi (le Bluetooth ne suffit pas)');
+      console.log('   3. Cet ordinateur est sur le meme Wi-Fi que l\'imprimante');
+      console.log('');
+      console.log('  Le serveur demarre quand meme : corrigez, puis relancez-le.');
+    }
+  }
+
+  console.log('');
+  await new Promise(res => serveur.listen(PORT, '0.0.0.0', res));
+
+  const adresses = adressesLocales();
+  console.log('  A RECOPIER DANS L\'APPLICATION, SUR LA TABLETTE :');
+  console.log('');
+  encadre(adresses.map(a => `http://${a}:${PORT}`));
+  console.log('');
+  console.log('    (Application > Reglages > Adresse du serveur d\'impression)');
+  console.log('');
+  console.log('  LAISSEZ CETTE FENETRE OUVERTE.');
+  console.log('  Si vous la fermez, l\'impression ne fonctionnera plus.');
+  console.log('');
+}
+
+demarrer().catch(e => {
+  console.error('');
+  console.error('  ERREUR AU DEMARRAGE : ' + e.message);
+  console.error('');
+  process.exitCode = 1;
+});
