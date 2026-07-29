@@ -504,7 +504,14 @@ async function envoyerImpression(canevas, copies) {
     return;
   }
   const { bits, largeurPoints, hauteur } = versBits(canevas);
-  const page = { bits: base64(bits), largeurPoints, hauteur };
+  // Deux formes de la même étiquette : les points bruts pour l'envoi direct,
+  // l'image PNG pour l'impression par le pilote Brother. Le serveur prend
+  // celle dont il a besoin selon la méthode retenue.
+  const page = {
+    bits: base64(bits),
+    png: canevas.toDataURL('image/png').split(',')[1],
+    largeurPoints, hauteur
+  };
   const pages = [];
   for (let i = 0; i < copies; i++) pages.push(page);
 

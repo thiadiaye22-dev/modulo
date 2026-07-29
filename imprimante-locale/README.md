@@ -5,18 +5,36 @@ boîte d'impression du navigateur.
 
 L'impression navigateur s'est révélée inutilisable sur tablette Android : quelle
 que soit la méthode, c'est toute la page de l'application qui sortait sur le
-rouleau. Ce serveur contourne le problème — la tablette envoie l'étiquette déjà
-tramée, le serveur l'habille du protocole raster Brother et l'expédie en TCP sur
-le port 9100. Une touche = une étiquette, au bon format, à chaque fois.
+rouleau. Ce serveur contourne le problème — la tablette lui envoie l'étiquette,
+il la fait imprimer, et le navigateur n'intervient plus. Une touche = une
+étiquette, au bon format.
+
+## Deux méthodes d'impression
+
+**Pilote Brother** (par défaut sous Windows quand une étiqueteuse Brother y est
+installée). L'étiquette est remise au pilote, qui produit l'encodage attendu par
+l'imprimante. C'est la voie fiable.
+
+**Envoi direct** (repli). Le serveur construit lui-même le protocole raster
+Brother et l'expédie en TCP sur le port 9100. Cette voie **n'a jamais réussi à
+imprimer sur la QL-820NWBc** malgré plusieurs corrections : l'imprimante accepte
+les commandes, avance le papier, mais n'imprime pas les points. L'encodage exact
+qu'elle attend n'a pas pu être identifié à distance. Le code et ses outils de
+diagnostic sont conservés, mais ne comptez pas sur cette voie.
 
 ## Ce qu'il vous faut
 
-- Un ordinateur (Windows, Mac ou Linux) ou un Raspberry Pi, **allumé** et
-  connecté au **même Wi-Fi que l'imprimante**
+- Un ordinateur **Windows**, **allumé**, sur le même réseau que l'imprimante
 - [Node.js](https://nodejs.org) version 16 ou plus récente
+- Le **pilote Brother** de la QL-820NWBc installé, et l'imprimante ajoutée dans
+  *Paramètres > Imprimantes et scanners*. Téléchargement sur
+  [support.brother.com](https://support.brother.com).
+
+Mac et Linux fonctionnent aussi, mais seulement en envoi direct — donc sans
+garantie d'impression.
 
 Aucune bibliothèque à installer : le serveur n'utilise que ce qui est fourni
-avec Node.
+avec Node, et PowerShell pour dialoguer avec le pilote.
 
 ## Démarrage
 
@@ -54,7 +72,9 @@ l'ordinateur n'est pas sur le même réseau qu'elle.
 
 | Option | Défaut | Rôle |
 |---|---|---|
-| `--imprimante <ip>` | recherche automatique | Impose l'adresse de l'imprimante |
+| `--methode <pilote\|direct>` | `pilote` si possible | Impose la méthode d'impression |
+| `--nom-imprimante "<nom>"` | première Brother trouvée | Imprimante Windows à utiliser |
+| `--imprimante <ip>` | recherche automatique | Adresse de l'imprimante, pour l'envoi direct |
 | `--port <n>` | `3001` | Port d'écoute du serveur |
 
 Utilisables aussi par variables d'environnement : `QL_IMPRIMANTE`, `QL_PORT`.
@@ -107,7 +127,7 @@ Pour que le serveur reparte tout seul après un redémarrage :
 npm test
 ```
 
-Trois séries de tests, sans imprimante réelle :
+Sept séries de tests, sans imprimante réelle :
 
 - `test-raster.js` — reconstruit l'image à partir du flux produit et vérifie
   qu'elle correspond exactement à l'image de départ (centrage sur les 720 points
@@ -116,20 +136,42 @@ Trois séries de tests, sans imprimante réelle :
   faux positif sur une adresse sans rien derrière
 - `test-serveur.js` — lance le serveur contre une fausse imprimante TCP et
   vérifie les octets réellement reçus, ainsi que le rejet des requêtes invalides
+- `test-envoi.js` — envoie un travail réaliste à une imprimante qui lit
+  lentement, et vérifie qu'aucun octet ne manque
+- `test-variantes.js` — les cinq formats raster sont bien formés et distincts
+- `test-pilote.js` — reconnaissance des étiqueteuses Brother par leur nom, refus
+  propre hors Windows, et repli du serveur sur l'envoi direct
+
+## Outils de diagnostic
+
+Tous se lancent d'un double-clic sous Windows :
+
+| Fichier | Rôle |
+|---|---|
+| `diagnostic.bat` | Interroge l'imprimante : rouleau, erreurs, octets bruts |
+| `sonde.bat` | Ports ouverts, réponses aux commandes, test d'avance papier |
+| `variantes.bat` | Essaie cinq formats de données raster, un par un |
 
 ## Ce qui n'a pas pu être vérifié ici
 
-Le protocole est implémenté d'après la *Raster Command Reference* de Brother pour
-la série QL-800/810W/820NWB, et sa mise en forme est validée par les tests
-ci-dessus. **Il n'a pas pu être essayé sur une imprimante réelle** — aucun
-matériel n'était disponible.
+Aucune imprimante n'était disponible pendant le développement. Les tests
+s'appuient sur des imprimantes factices : ils garantissent la forme des données,
+pas le comportement du matériel.
 
-Si la première impression sort décalée ou de travers, les valeurs à ajuster sont
-dans `raster.js` :
+Ce que le terrain a établi sur la QL-820NWBc, en envoi direct :
 
-- `MARGE_GAUCHE_62` — décalage horizontal, en points (12 par défaut)
-- l'option `margePoints` de `construireFlux` — avance papier avant l'étiquette
-  (35 points ≈ 3 mm)
+- elle accepte les connexions sur le port 9100 et lit ce qu'on lui envoie ;
+- elle **ne répond à aucune demande d'état** (`ESC i S`), contrairement à ce que
+  documente Brother pour cette série ;
+- une commande d'avance papier **fonctionne** : le rouleau avance ;
+- aucun des cinq formats raster essayés n'imprime de points.
+
+Le canal est donc bon et les commandes sont exécutées ; c'est l'encodage des
+lignes de points qui reste inconnu. D'où le choix de passer par le pilote.
+
+Si l'étiquette sort décalée en envoi direct, les valeurs à ajuster sont dans
+`raster.js` : `MARGE_GAUCHE_62` (décalage horizontal, 12 points) et l'option
+`margePoints` de `construireFlux` (avance papier, 35 points ≈ 3 mm).
 
 ## Interface HTTP
 

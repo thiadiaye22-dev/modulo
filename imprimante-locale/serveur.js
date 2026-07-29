@@ -16,12 +16,13 @@ const path = require('path');
 const raster = require('./raster');
 const recherche = require('./recherche');
 const etatImprimante = require('./etat');
+const pilote = require('./pilote-windows');
 
 const PORT_IMPRIMANTE = 9100;
 
 // Affiché au démarrage : permet de vérifier d'un coup d'œil quelle version
 // tourne réellement, et d'écarter le cas d'une ancienne archive relancée.
-const VERSION = "v8 — fermeture propre de la connexion";
+const VERSION = 'v9 — impression par le pilote Brother';
 
 function lireOption(nom, valeurParDefaut) {
   const i = process.argv.indexOf('--' + nom);
@@ -33,6 +34,15 @@ function lireOption(nom, valeurParDefaut) {
 // L'adresse peut être fournie ; sinon le serveur cherche l'imprimante tout seul.
 let IMPRIMANTE = lireOption('imprimante', '');
 const PORT = parseInt(lireOption('port', '3001'), 10);
+
+// Méthode d'impression :
+//   pilote — l'étiquette est remise au pilote Brother de Windows (par défaut
+//            quand une étiqueteuse Brother y est installée) ;
+//   direct — le protocole raster est envoyé en TCP sur le port 9100.
+// Le pilote est privilégié : l'envoi direct n'a jamais réussi à imprimer sur
+// ce modèle, alors que le pilote sait par construction parler à son matériel.
+let METHODE = lireOption('methode', '');
+let IMPRIMANTE_PILOTE = lireOption('nom-imprimante', '');
 
 // --- Envoi TCP ---
 
@@ -134,6 +144,36 @@ async function traiterImpression(req, rep) {
 
   if (!Array.isArray(demande.pages) || !demande.pages.length) {
     return json(rep, 400, { ok: false, erreur: 'aucune page fournie' });
+  }
+
+  // Méthode pilote : on remet l'image au pilote Brother et on s'arrête là.
+  // Aucune des étapes raster ci-dessous ne s'applique — c'est le pilote qui
+  // produit l'encodage attendu par l'imprimante.
+  if (METHODE === 'pilote' && !demande.simulation) {
+    const sansPng = demande.pages.findIndex(p => !p.png);
+    if (sansPng !== -1) {
+      return json(rep, 400, { ok: false,
+        erreur: `page ${sansPng + 1} : image PNG absente. Rechargez la page de ` +
+                `l'application sur la tablette pour prendre la nouvelle version.` });
+    }
+    const resultats = [];
+    for (let i = 0; i < demande.pages.length; i++) {
+      const p = demande.pages[i];
+      const r = await pilote.imprimerPng(Buffer.from(p.png, 'base64'), {
+        imprimante: IMPRIMANTE_PILOTE,
+        largeurPoints: p.largeurPoints || raster.POINTS_IMPRIMABLES_62,
+        hauteurPoints: p.hauteur
+      });
+      if (!r.ok) {
+        return json(rep, 502, { ok: false,
+          erreur: `Le pilote Brother a refusé l'étiquette ${i + 1} : ${r.erreur}`,
+          methode: 'pilote', imprimante: IMPRIMANTE_PILOTE });
+      }
+      resultats.push(r.detail);
+    }
+    return json(rep, 200, { ok: true, methode: 'pilote',
+      imprimante: IMPRIMANTE_PILOTE, pages: demande.pages.length,
+      avertissements: resultats.filter(x => x && /AVERTISSEMENT/.test(x)) });
   }
 
   // On demande à l'imprimante quel rouleau est chargé plutôt que de le supposer :
@@ -246,7 +286,16 @@ const serveur = http.createServer(async (req, rep) => {
 
   if (chemin === '/etat' && req.method === 'GET') {
     const base = await testerImprimante();
-    const reponse = Object.assign({ imprimante: IMPRIMANTE, port: PORT_IMPRIMANTE }, base);
+    const reponse = Object.assign({
+      imprimante: IMPRIMANTE, port: PORT_IMPRIMANTE,
+      methode: METHODE, imprimanteWindows: IMPRIMANTE_PILOTE
+    }, base);
+    // En méthode pilote, c'est l'existence de l'imprimante dans Windows qui
+    // compte, pas la joignabilité réseau : le pilote s'en occupe lui-même.
+    if (METHODE === 'pilote' && IMPRIMANTE_PILOTE) {
+      reponse.joignable = true;
+      reponse.detail = 'pilote Brother : ' + IMPRIMANTE_PILOTE;
+    }
     if (base.joignable) {
       const lu = await etatImprimante.lireEtat(IMPRIMANTE);
       if (lu.ok) {
@@ -317,6 +366,10 @@ async function demarrer() {
   console.log('  ===========================================');
   console.log('');
 
+  // En méthode pilote, l'adresse réseau ne sert plus à rien : Windows sait
+  // déjà joindre l'imprimante. On évite donc un balayage réseau inutile.
+  const piloteProbable = pilote.disponible() && METHODE !== 'direct';
+
   if (IMPRIMANTE) {
     process.stdout.write(`  Verification de l'imprimante ${IMPRIMANTE} ... `);
     const ok = await recherche.testerAdresse(IMPRIMANTE, 2000);
@@ -324,7 +377,7 @@ async function demarrer() {
     if (!ok) IMPRIMANTE = '';
   }
 
-  if (!IMPRIMANTE) {
+  if (!IMPRIMANTE && !piloteProbable) {
     console.log('  Recherche de l\'imprimante sur le reseau, patientez...');
     console.log('');
     const r = await recherche.chercherImprimantes(t => console.log('    ' + t));
@@ -362,20 +415,67 @@ async function demarrer() {
     }
   }
 
-  if (IMPRIMANTE) {
-    const lu = await etatImprimante.lireEtatAvecReprises(IMPRIMANTE);
-    if (lu.ok) {
-      console.log(`  Rouleau charge : ${lu.etat.libelle}` +
-        (lu.etat.pointsImprimables ? ` (${lu.etat.pointsImprimables} points imprimables)` : ''));
-      lu.etat.erreurs.forEach(e => console.log('  ATTENTION : ' + e));
+  // Choix de la méthode. Le pilote Brother est privilégié dès qu'une étiqueteuse
+  // Brother est installée dans Windows : l'envoi direct du protocole raster
+  // n'a jamais réussi à imprimer sur ce modèle.
+  if (pilote.disponible() && METHODE !== 'direct') {
+    const liste = await pilote.listerImprimantes();
+    if (liste.ok) {
+      if (!IMPRIMANTE_PILOTE && liste.brother.length) IMPRIMANTE_PILOTE = liste.brother[0];
+      if (IMPRIMANTE_PILOTE) {
+        METHODE = 'pilote';
+        console.log(`  Methode : pilote Brother de Windows`);
+        console.log(`  Imprimante : ${IMPRIMANTE_PILOTE}`);
+        if (liste.brother.length > 1) {
+          console.log('  Autres etiqueteuses installees : ' + liste.brother.slice(1).join(', '));
+          console.log('  Pour en choisir une autre, relancez avec :');
+          console.log(`      node serveur.js --nom-imprimante "${liste.brother[1]}"`);
+        }
+      } else {
+        console.log('  AUCUNE ETIQUETEUSE BROTHER INSTALLEE DANS WINDOWS.');
+        console.log('');
+        console.log('  Le pilote Brother n\'est pas installe sur cet ordinateur.');
+        console.log('  A FAIRE :');
+        console.log('   1. Rendez-vous sur support.brother.com');
+        console.log('   2. Cherchez le modele QL-820NWBc, rubrique Telechargements');
+        console.log('   3. Installez le pilote, puis ajoutez l\'imprimante');
+        console.log('      (Parametres > Imprimantes et scanners > Ajouter)');
+        console.log('   4. Relancez ce serveur');
+        console.log('');
+        console.log('  En attendant, l\'envoi direct est utilise — sans garantie.');
+        if (liste.toutes.length) {
+          console.log('  Imprimantes vues dans Windows : ' + liste.toutes.join(', '));
+        }
+        METHODE = 'direct';
+      }
     } else {
-      console.log(`  Rouleau charge : non communique par l'imprimante`);
-      console.log('  (toutes les QL ne repondent pas a cette question ; ce');
-      console.log('   n\'est pas bloquant, le reglage de l\'application est');
-      console.log('   utilise a la place)');
+      console.log(`  Pilote Windows inutilisable (${liste.erreur}) : envoi direct.`);
+      METHODE = 'direct';
+    }
+  } else if (!METHODE) {
+    METHODE = 'direct';
+    if (!pilote.disponible()) {
+      console.log('  Methode : envoi direct (le pilote n\'est pilotable que sous Windows)');
     }
   } else {
-    console.log('  Rouleau charge : inconnu, aucune imprimante detectee.');
+    console.log('  Methode : envoi direct, demande explicitement');
+  }
+
+  // L'état du rouleau n'a de sens qu'en envoi direct : en méthode pilote, c'est
+  // le pilote qui gère le support.
+  if (METHODE === 'direct') {
+    if (IMPRIMANTE) {
+      const lu = await etatImprimante.lireEtatAvecReprises(IMPRIMANTE);
+      if (lu.ok) {
+        console.log(`  Rouleau charge : ${lu.etat.libelle}` +
+          (lu.etat.pointsImprimables ? ` (${lu.etat.pointsImprimables} points imprimables)` : ''));
+        lu.etat.erreurs.forEach(e => console.log('  ATTENTION : ' + e));
+      } else {
+        console.log(`  Rouleau charge : non communique par l'imprimante`);
+      }
+    } else {
+      console.log('  Rouleau charge : inconnu, aucune imprimante detectee.');
+    }
   }
 
   console.log('');
