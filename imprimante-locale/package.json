@@ -6,7 +6,7 @@
   "main": "serveur.js",
   "scripts": {
     "start": "node serveur.js",
-    "test": "node test-raster.js && node test-recherche.js && node test-etat.js && node test-serveur.js && node test-envoi.js && node test-variantes.js && node test-pilote.js"
+    "test": "node test-raster.js && node test-recherche.js && node test-etat.js && node test-serveur.js && node test-envoi.js && node test-variantes.js && node test-png.js && node test-pilote.js"
   },
   "dependencies": {},
   "engines": {
