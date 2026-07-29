@@ -60,10 +60,13 @@ function essai(ip, nom, sequence, attente) {
     s.on('close', () => fin('connexion fermée par l\'imprimante'));
 
     s.connect(9100, ip, () => {
-      s.write(sequence, () => {
-        // On laisse la connexion ouverte : certaines imprimantes répondent tard.
-        setTimeout(() => fin(recu.length ? 'réponse reçue' : 'aucune réponse'), attente || 6000);
-      });
+      if (sequence.length) {
+        s.write(sequence);
+        // On termine le flux proprement : couper brutalement ferait perdre à
+        // l'imprimante ce qu'elle n'a pas encore lu.
+        s.end();
+      }
+      setTimeout(() => fin(recu.length ? 'réponse reçue' : 'aucune réponse'), attente || 6000);
     });
   });
 }

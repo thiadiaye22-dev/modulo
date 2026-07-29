@@ -21,7 +21,7 @@ const PORT_IMPRIMANTE = 9100;
 
 // Affiché au démarrage : permet de vérifier d'un coup d'œil quelle version
 // tourne réellement, et d'écarter le cas d'une ancienne archive relancée.
-const VERSION = 'v7 — correctif du type de rouleau';
+const VERSION = "v8 — fermeture propre de la connexion";
 
 function lireOption(nom, valeurParDefaut) {
   const i = process.argv.indexOf('--' + nom);
@@ -36,6 +36,15 @@ const PORT = parseInt(lireOption('port', '3001'), 10);
 
 // --- Envoi TCP ---
 
+// La fermeture doit être négociée, pas imposée.
+//
+// socket.destroy() coupe la connexion par un RST : tout ce que l'imprimante
+// n'a pas encore lu est perdu, et le travail est abandonné sans un mot. Sur une
+// étiquette de plusieurs dizaines de kilo-octets, 400 ms ne suffisent pas à la
+// tête thermique pour tout absorber.
+//
+// On termine donc par end(), qui envoie une fin de flux propre, et on attend
+// que l'imprimante ferme de son côté — signe qu'elle a bien tout lu.
 function envoyerAImprimante(flux) {
   return new Promise((resoudre, rejeter) => {
     const socket = new net.Socket();
@@ -47,17 +56,23 @@ function envoyerAImprimante(flux) {
       err ? rejeter(err) : resoudre();
     };
 
-    socket.setTimeout(10000);
+    // Large : le temps d'absorption dépend de la longueur de l'étiquette.
+    socket.setTimeout(30000);
     socket.on('timeout', () => terminer(new Error(
       `l'imprimante ${IMPRIMANTE}:${PORT_IMPRIMANTE} ne répond pas (délai dépassé)`)));
     socket.on('error', (e) => terminer(new Error(
       `connexion à ${IMPRIMANTE}:${PORT_IMPRIMANTE} impossible — ${e.message}`)));
 
+    // L'imprimante ferme la connexion quand elle a fini de lire : c'est le
+    // seul accusé de réception dont on dispose.
+    socket.on('close', () => terminer(null));
+
     socket.connect(PORT_IMPRIMANTE, IMPRIMANTE, () => {
-      socket.write(flux, () => {
-        // Laisser le temps au tampon de partir avant de fermer.
-        setTimeout(() => terminer(null), 400);
-      });
+      socket.write(flux);
+      socket.end();          // fin de flux propre, sans couper la lecture en cours
+      // Filet de sécurité : certaines imprimantes gardent la connexion ouverte
+      // après avoir tout lu. Au bout de 5 s on considère l'envoi abouti.
+      setTimeout(() => terminer(null), 5000);
     });
   });
 }
