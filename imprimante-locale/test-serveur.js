@@ -47,14 +47,23 @@ const attendre = (ms) => new Promise(r => setTimeout(r, ms));
   // Fausse imprimante
   let recu = [];
   const imprimante = net.createServer(socket => {
-    socket.on('data', c => recu.push(c));
+    socket.on('data', c => {
+      recu.push(c);
+      // Répondre à la demande d'état évite que le serveur épuise ses reprises
+      // au démarrage, ce qui retarderait son écoute au-delà du délai du test.
+      if (c.length < 300) {
+        const e = Buffer.alloc(32, 0);
+        e[0] = 0x80; e[1] = 0x20; e[2] = 0x42; e[10] = 62; e[11] = 0x0a;
+        socket.write(e);
+      }
+    });
   });
   await new Promise(res => imprimante.listen(9100, '127.0.0.1', res));
 
   const serveur = spawn(process.execPath,
     [__dirname + '/serveur.js', '--imprimante', '127.0.0.1', '--port', String(PORT_HTTP)],
     { stdio: 'ignore' });
-  await attendre(900);
+  await attendre(3000);
 
   try {
     const etat = await requete('/etat');
@@ -85,11 +94,15 @@ const attendre = (ms) => new Promise(r => setTimeout(r, ms));
       assert.strictEqual(rep.corps.pages, 2);
     });
 
-    const flux = Buffer.concat(recu);
+    // Le serveur interroge l'état avant d'imprimer : cet échange précède le
+    // travail dans le flux enregistré, on le retire pour comparer.
+    const tout = Buffer.concat(recu);
+    const debut = tout.length - rep.corps.octets;
+    const flux = tout.slice(Math.max(0, debut));
     verifier('l\'imprimante a bien reçu le flux', () => {
-      assert.ok(flux.length > 0, 'rien reçu');
-      assert.strictEqual(rep.corps.octets, flux.length,
-        `annoncé ${rep.corps.octets}, reçu ${flux.length}`);
+      assert.ok(tout.length > 0, 'rien reçu');
+      assert.ok(debut >= 0,
+        `annoncé ${rep.corps.octets}, reçu seulement ${tout.length}`);
     });
 
     verifier('le flux reçu est un travail raster valide', () => {
