@@ -160,6 +160,28 @@ verifier('prédécoupé : longueur renseignée et marge nulle', () => {
   assert.strictEqual(p[0].marge, 0, 'la marge doit être nulle sur prédécoupé');
 });
 
+// Le drapeau 0x08 annonce que la longueur du support est renseignée. Le poser
+// sur un rouleau continu, dont la longueur vaut 0, fait refuser le travail.
+verifier('rouleau continu : la longueur n\'est PAS annoncée comme valide', () => {
+  const f = r.construireFlux([{ lignes, hauteur: HAUTEUR }], { largeurMm: 62 });
+  const i = f.indexOf(Buffer.from([0x1b, 0x69, 0x7a]));
+  assert.ok(i > 0, 'commande ESC i z absente');
+  const drapeaux = f[i + 3];
+  assert.strictEqual(drapeaux & 0x08, 0, `drapeaux 0x${drapeaux.toString(16)} : bit longueur posé à tort`);
+  assert.strictEqual(drapeaux & 0x02, 0x02, 'le type de support doit être annoncé');
+  assert.strictEqual(drapeaux & 0x04, 0x04, 'la largeur doit être annoncée');
+  assert.strictEqual(f[i + 6], 0, 'la longueur transmise doit valoir 0');
+});
+
+verifier('prédécoupé : la longueur EST annoncée comme valide', () => {
+  const f = r.construireFlux([{ lignes, hauteur: HAUTEUR }],
+    { largeurMm: 62, longueurMm: 29, typeSupport: r.TYPE_SUPPORT.predecoupe });
+  const i = f.indexOf(Buffer.from([0x1b, 0x69, 0x7a]));
+  const drapeaux = f[i + 3];
+  assert.strictEqual(drapeaux & 0x08, 0x08, 'le bit longueur doit être posé');
+  assert.strictEqual(f[i + 6], 29, 'la longueur transmise doit valoir 29');
+});
+
 verifier('une ligne de mauvaise taille est refusée', () => {
   assert.throws(() => r.ligneRaster(Buffer.alloc(50)), /90/);
 });

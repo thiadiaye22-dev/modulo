@@ -21,7 +21,7 @@ const PORT_IMPRIMANTE = 9100;
 
 // Affiché au démarrage : permet de vérifier d'un coup d'œil quelle version
 // tourne réellement, et d'écarter le cas d'une ancienne archive relancée.
-const VERSION = 'v6 — lecture du rouleau';
+const VERSION = 'v7 — correctif du type de rouleau';
 
 function lireOption(nom, valeurParDefaut) {
   const i = process.argv.indexOf('--' + nom);
@@ -354,8 +354,10 @@ async function demarrer() {
         (lu.etat.pointsImprimables ? ` (${lu.etat.pointsImprimables} points imprimables)` : ''));
       lu.etat.erreurs.forEach(e => console.log('  ATTENTION : ' + e));
     } else {
-      console.log(`  Rouleau charge : lecture impossible (${lu.erreur})`);
-      console.log('  L\'impression sera tentee avec les valeurs par defaut.');
+      console.log(`  Rouleau charge : non communique par l'imprimante`);
+      console.log('  (toutes les QL ne repondent pas a cette question ; ce');
+      console.log('   n\'est pas bloquant, le reglage de l\'application est');
+      console.log('   utilise a la place)');
     }
   } else {
     console.log('  Rouleau charge : inconnu, aucune imprimante detectee.');

@@ -31,12 +31,17 @@ const modeRaster = () => Buffer.from([0x1b, 0x69, 0x61, 0x01]);         // ESC i
 
 // ESC i z — description du support et nombre de lignes de la page.
 function informationsImpression(opt) {
-  const drapeaux =
+  // Le bit 0x08 annonce « longueur du support renseignée ». Sur un rouleau
+  // continu la longueur vaut 0, et l'annoncer valide revient à décrire une
+  // étiquette prédécoupée de 0 mm : l'imprimante refuse alors le travail avec
+  // « mauvais type de rouleau ». Ce bit ne doit donc être posé que pour un
+  // support prédécoupé, où la longueur a un sens.
+  let drapeaux =
     0x02 |   // type de support renseigné
     0x04 |   // largeur du support renseignée
-    0x08 |   // longueur du support renseignée
     0x40 |   // priorité à la qualité d'impression
     0x80;    // récupération automatique après erreur
+  if (opt.longueurMm > 0) drapeaux |= 0x08;
   return Buffer.concat([
     Buffer.from([0x1b, 0x69, 0x7a, drapeaux,
       opt.typeSupport,
