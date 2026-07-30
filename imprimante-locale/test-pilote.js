@@ -115,6 +115,47 @@ function requete(chemin, corps) {
     assert.deepStrictEqual(r.formats, []);
   });
 
+  verifier('l\'etat de la file se relit : hors connexion, port, travaux', () => {
+    const brut = [
+      'IMPRIMANTE\tBrother QL-820NWB\tTrue\t3\t2\tWSD-70a3...',
+      'PORT\tAUTRE\tWSD-70a3...\t',
+      'TRAVAIL\t7\tEtiquette DLC\tError - Printing\tImpression'
+    ].join('\r\n');
+    const r = pilote.analyserFile(brut);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.imprimante.horsLigne, true);
+    assert.strictEqual(r.imprimante.etat, 'prête');       // code 3
+    assert.strictEqual(r.imprimante.erreur, 'aucune');    // code 2
+    assert.strictEqual(r.port.type, 'AUTRE');
+    assert.match(r.port.adresse, /^WSD/);
+    assert.strictEqual(r.travaux.length, 1);
+    assert.strictEqual(r.travaux[0].id, 7);
+    assert.strictEqual(r.travaux[0].document, 'Etiquette DLC');
+    assert.match(r.travaux[0].etat, /Error/);
+  });
+
+  verifier('une imprimante en ligne au port reseau, file vide', () => {
+    const brut = [
+      'IMPRIMANTE\tBrother QL-820NWB\tFalse\t3\t2\t192.168.1.46_1',
+      'PORT\tTCPIP\t192.168.1.46\t9100'
+    ].join('\r\n');
+    const r = pilote.analyserFile(brut);
+    assert.strictEqual(r.imprimante.horsLigne, false);
+    assert.deepStrictEqual(r.port, { type: 'TCPIP', adresse: '192.168.1.46', numero: 9100 });
+    assert.deepStrictEqual(r.travaux, []);
+  });
+
+  if (!pilote.disponible()) {
+    const fileKo = await pilote.lireFile('X');
+    const purgeKo = await pilote.purgerFile('X');
+    verifier('file et purge refusent proprement hors Windows', () => {
+      assert.strictEqual(fileKo.ok, false);
+      assert.match(fileKo.erreur, /Windows/);
+      assert.strictEqual(purgeKo.ok, false);
+      assert.match(purgeKo.erreur, /Windows/);
+    });
+  }
+
   const sansNom = await pilote.imprimerPng(Buffer.alloc(10), { hauteurPoints: 10 });
   verifier('un appel sans nom d\'imprimante est refuse', () => {
     assert.strictEqual(sansNom.ok, false);

@@ -100,6 +100,67 @@ function analyserFormats(sortie) {
   return res;
 }
 
+// Codes d'état de Win32_Printer, traduits.
+const ETATS_IMPRIMANTE = {
+  1: 'autre', 2: 'inconnu', 3: 'prête', 4: 'impression en cours',
+  5: 'préchauffage', 6: 'impression arrêtée', 7: 'hors ligne'
+};
+const ERREURS_IMPRIMANTE = {
+  0: 'inconnue', 1: 'autre', 2: 'aucune', 3: 'papier bientôt épuisé',
+  4: 'plus de papier', 5: 'niveau d\'impression faible', 6: 'consommable épuisé',
+  7: 'capot ouvert', 8: 'bourrage', 9: 'hors ligne',
+  10: 'intervention demandée', 11: 'bac de sortie plein'
+};
+
+/**
+ * Lit l'état de la file d'attente Windows pour une imprimante : hors
+ * connexion ou pas, port utilisé, travaux en attente et leur état.
+ *
+ * C'est le seul moyen de distinguer « le pilote a accepté le travail » de
+ * « le travail est réellement parti vers l'imprimante ».
+ */
+async function lireFile(imprimante) {
+  if (!disponible()) return { ok: false, erreur: 'disponible uniquement sous Windows' };
+  if (!imprimante) return { ok: false, erreur: 'nom d\'imprimante manquant' };
+
+  const r = await executerPowerShell(['-Action', 'EtatFile', '-Imprimante', imprimante], 20000);
+  if (!r.ok) return { ok: false, erreur: r.erreur };
+  return analyserFile(r.sortie);
+}
+
+// Séparé de l'appel à PowerShell pour être vérifiable sans Windows.
+function analyserFile(sortie) {
+  const res = { ok: true, imprimante: null, port: null, travaux: [] };
+  sortie.split(/\r?\n/).forEach((ligne) => {
+    const c = ligne.split('\t').map(s => s.trim());
+    if (c[0] === 'IMPRIMANTE') {
+      res.imprimante = {
+        nom: c[1],
+        horsLigne: c[2] === 'True',
+        etat: ETATS_IMPRIMANTE[+c[3]] || `code ${c[3]}`,
+        erreur: ERREURS_IMPRIMANTE[+c[4]] || `code ${c[4]}`,
+        portNom: c[5]
+      };
+    } else if (c[0] === 'PORT') {
+      res.port = { type: c[1], adresse: c[2], numero: c[3] ? +c[3] : null };
+    } else if (c[0] === 'TRAVAIL') {
+      res.travaux.push({ id: +c[1], document: c[2], etat: c[3] || '', statut: c[4] || '' });
+    }
+  });
+  return res;
+}
+
+/**
+ * Vide la file d'attente de l'imprimante. Des travaux morts d'essais
+ * précédents bloquent tous les suivants : on purge avant chaque test.
+ */
+async function purgerFile(imprimante) {
+  if (!disponible()) return { ok: false, erreur: 'disponible uniquement sous Windows' };
+  if (!imprimante) return { ok: false, erreur: 'nom d\'imprimante manquant' };
+  const r = await executerPowerShell(['-Action', 'Purger', '-Imprimante', imprimante], 20000);
+  return r.ok ? { ok: true } : { ok: false, erreur: r.erreur };
+}
+
 /**
  * Imprime une image PNG par le pilote, à sa taille physique exacte.
  *
@@ -139,5 +200,6 @@ async function imprimerPng(png, opt) {
 
 module.exports = {
   disponible, listerImprimantes, listerFormats, analyserFormats,
+  lireFile, analyserFile, purgerFile,
   imprimerPng, estEtiqueteuseBrother, enMm
 };

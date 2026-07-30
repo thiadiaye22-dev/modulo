@@ -6,10 +6,12 @@
 #
 #   .\pilote.ps1 -Action Lister
 #   .\pilote.ps1 -Action Formats -Imprimante "Brother QL-820NWB"
+#   .\pilote.ps1 -Action EtatFile -Imprimante "Brother QL-820NWB"
+#   .\pilote.ps1 -Action Purger -Imprimante "Brother QL-820NWB"
 #   .\pilote.ps1 -Action Imprimer -Fichier etiquette.png -Imprimante "Brother QL-820NWBc" -LargeurPx 696 -HauteurPx 871
 
 param(
-  [Parameter(Mandatory = $true)][ValidateSet('Lister', 'Formats', 'Imprimer')][string]$Action,
+  [Parameter(Mandatory = $true)][ValidateSet('Lister', 'Formats', 'EtatFile', 'Purger', 'Imprimer')][string]$Action,
   [string]$Fichier,
   [string]$Imprimante,
   [int]$LargeurPx = 696,
@@ -53,6 +55,47 @@ function Formats {
   foreach ($r in $doc.PrinterSettings.PrinterResolutions) {
     Write-Output "RESOLUTION`t$($r.Kind)`t$($r.X)`t$($r.Y)"
   }
+}
+
+function TrouverImprimante {
+  $imp = Get-CimInstance -ClassName Win32_Printer |
+    Where-Object { $_.Name -eq $Imprimante }
+  if ($null -eq $imp) { throw "imprimante inconnue de Windows : $Imprimante" }
+  return $imp
+}
+
+# L'état vu par le spouleur : une réponse « OK » du pilote signifie seulement
+# que le travail est entré dans la file d'attente. Si Windows tient
+# l'imprimante pour hors connexion, ou si le port ne mène nulle part, le
+# travail y reste sans que rien ne sorte — c'est ici qu'on le voit.
+function EtatFile {
+  $imp = TrouverImprimante
+  Write-Output ("IMPRIMANTE`t{0}`t{1}`t{2}`t{3}`t{4}" -f `
+    $imp.Name, $imp.WorkOffline, $imp.PrinterStatus, $imp.DetectedErrorState, $imp.PortName)
+
+  $port = Get-CimInstance -ClassName Win32_TCPIPPrinterPort -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -eq $imp.PortName }
+  if ($port) {
+    Write-Output ("PORT`tTCPIP`t{0}`t{1}" -f $port.HostAddress, $port.PortNumber)
+  } else {
+    Write-Output ("PORT`tAUTRE`t{0}`t" -f $imp.PortName)
+  }
+
+  # Win32_PrintJob nomme chaque travail « imprimante, numéro ».
+  Get-CimInstance -ClassName Win32_PrintJob -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like "$($imp.Name),*" } |
+    ForEach-Object {
+      Write-Output ("TRAVAIL`t{0}`t{1}`t{2}`t{3}" -f `
+        $_.JobId, $_.Document, $_.JobStatus, $_.Status)
+    }
+}
+
+# Vide la file de cette imprimante. Des travaux morts d'essais précédents
+# peuvent bloquer tous les suivants : on repart de zéro avant chaque test.
+function Purger {
+  $imp = TrouverImprimante
+  Invoke-CimMethod -InputObject $imp -MethodName CancelAllJobs | Out-Null
+  Write-Output "OK"
 }
 
 function Imprimer {
@@ -129,5 +172,7 @@ function Imprimer {
 switch ($Action) {
   'Lister'   { Lister }
   'Formats'  { Formats }
+  'EtatFile' { EtatFile }
+  'Purger'   { Purger }
   'Imprimer' { Imprimer }
 }

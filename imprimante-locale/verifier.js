@@ -111,7 +111,61 @@ function lireOption(nom, defaut) {
   console.log(`  Etiqueteuse retenue : ${imprimante}`);
   console.log('');
 
-  // 3. Ce que le pilote déclare savoir faire
+  // 3. L'état de la file d'attente : c'est là que « rien ne sort » se joue.
+  // Une réponse « OK » du pilote dit seulement que le travail est entré dans
+  // la file ; si Windows tient l'imprimante pour hors connexion, il y restera.
+  const avant = await pilote.lireFile(imprimante);
+  if (avant.ok && avant.port) {
+    if (avant.port.type === 'TCPIP') {
+      console.log(`  Port Windows      : reseau, adresse ${avant.port.adresse}` +
+                  (avant.port.numero ? `:${avant.port.numero}` : ''));
+    } else {
+      console.log(`  Port Windows      : ${avant.port.adresse}`);
+      if (/^WSD/i.test(avant.port.adresse)) {
+        console.log('                      (port "WSD" : ce type de port tombe');
+        console.log('                      souvent hors connexion tout seul)');
+      }
+    }
+  }
+  if (avant.ok && avant.imprimante) {
+    console.log(`  Etat selon Windows: ${avant.imprimante.etat}` +
+                (avant.imprimante.erreur !== 'aucune' ? ` — erreur : ${avant.imprimante.erreur}` : ''));
+
+    if (avant.imprimante.horsLigne) {
+      console.log('');
+      console.log('  ==================================================');
+      console.log('    WINDOWS TIENT L\'IMPRIMANTE POUR "HORS CONNEXION"');
+      console.log('  ==================================================');
+      console.log('');
+      console.log('  Voila pourquoi rien ne sort : le pilote accepte les');
+      console.log('  etiquettes, mais Windows les garde dans la file d\'attente');
+      console.log('  au lieu de les envoyer.');
+      console.log('');
+      console.log('  A FAIRE :');
+      console.log('   1. Parametres > Bluetooth et appareils > Imprimantes et');
+      console.log('      scanners > Brother QL-820NWB');
+      console.log('   2. "Ouvrir la file d\'attente d\'impression"');
+      console.log('   3. Dans la petite fenetre, menu "Imprimante" (en haut) :');
+      console.log('      DECOCHEZ "Utiliser l\'imprimante hors connexion"');
+      console.log('   4. Relancez cette verification');
+      console.log('');
+      console.log('  Si la case se recoche toute seule, Windows n\'arrive plus a');
+      console.log('  joindre l\'imprimante par le port indique ci-dessus :');
+      console.log('  eteignez l\'imprimante, rallumez-la, attendez le voyant fixe,');
+      console.log('  et relancez cette verification.');
+      console.log('');
+      return;
+    }
+
+    if (avant.travaux.length) {
+      console.log(`  File d'attente    : ${avant.travaux.length} travail(aux) ` +
+                  'coince(s) d\'essais precedents — on vide la file...');
+      const purge = await pilote.purgerFile(imprimante);
+      if (!purge.ok) console.log(`                      purge impossible : ${purge.erreur}`);
+    }
+  }
+
+  // 4. Ce que le pilote déclare savoir faire
   const format = lireOption('format', '');
   const reglages = await pilote.listerFormats(imprimante);
   if (!reglages.ok) {
@@ -143,7 +197,7 @@ function lireOption(nom, defaut) {
   }
   console.log('');
 
-  // 4. Impression de l'étiquette de test
+  // 5. Impression de l'étiquette de test
   console.log('  Envoi d\'une etiquette de test au pilote...');
   if (format) console.log(`  Format impose : ${format}`);
   const img = imageTest();
@@ -178,6 +232,35 @@ function lireOption(nom, defaut) {
   console.log('    ETIQUETTE ENVOYEE AU PILOTE');
   console.log('  ==================================================');
   if (r.detail) r.detail.split(/\r?\n/).forEach(l => console.log(`  ${l}`));
+  console.log('');
+
+  // 6. Le travail est-il vraiment parti, ou coincé dans la file ?
+  console.log('  On laisse 8 secondes a Windows, puis on regarde la file...');
+  await new Promise(res => setTimeout(res, 8000));
+  const apres = await pilote.lireFile(imprimante);
+  console.log('');
+  if (apres.ok) {
+    if (!apres.travaux.length) {
+      console.log('  La file d\'attente est VIDE : Windows a bien remis le');
+      console.log('  travail a l\'imprimante.');
+    } else {
+      console.log('  LE TRAVAIL EST ENCORE DANS LA FILE D\'ATTENTE :');
+      apres.travaux.forEach(t => {
+        console.log(`    - "${t.document}" — etat : ${t.etat || t.statut || 'en attente'}`);
+      });
+      console.log('');
+      console.log('  Tant qu\'il y reste, rien ne sortira. Le plus souvent :');
+      console.log('   - l\'imprimante n\'est plus joignable par le port Windows');
+      console.log('     (eteignez-la, rallumez-la, attendez le voyant fixe)');
+      console.log('   - ou le rouleau ne correspond pas au format regle dans le');
+      console.log('     pilote (le voyant de l\'imprimante clignote alors)');
+      console.log('');
+      console.log('  Relancez ensuite cette verification : elle videra la file');
+      console.log('  et refera un essai propre.');
+      console.log('');
+      return;
+    }
+  }
   console.log('');
   console.log('  REGARDEZ L\'IMPRIMANTE.');
   console.log('');
