@@ -1,0 +1,85 @@
+======================================================================
+  ETIQUETTES DLC - BROTHER QL-820NWBc
+  A faire dans l'ordre, sur l'ORDINATEUR WINDOWS
+======================================================================
+
+
+ETAPE 1 - INSTALLER LE PILOTE BROTHER
+-------------------------------------
+
+Le fichier "CommonInstaller.exe" que vous avez telecharge est bien le
+bon : c'est l'installateur Brother. Il faut le lancer SUR VOTRE
+ORDINATEUR WINDOWS.
+
+  a) Clic DROIT sur CommonInstaller.exe
+     > "Executer en tant qu'administrateur"
+     (il refuse de s'installer autrement)
+
+  b) L'installateur telecharge les fichiers depuis internet :
+     l'ordinateur doit etre connecte.
+
+  c) Modele : QL-820NWBc
+
+  d) Type de connexion : "Connexion reseau sans fil" (Wi-Fi)
+     Adresse de l'imprimante : 192.168.1.46
+
+  e) Laissez l'installation aller jusqu'au bout, puis verifiez :
+     Parametres > Bluetooth et appareils > Imprimantes et scanners
+     La "Brother QL-820NWBc" doit y apparaitre, avec l'etat "Pret".
+
+
+ETAPE 2 - VERIFIER, ET IMPRIMER UNE ETIQUETTE DE TEST
+-----------------------------------------------------
+
+Double-cliquez sur :
+
+        1-VERIFIER-IMPRIMANTE.bat
+
+Ce programme fait trois choses :
+  - il liste les imprimantes que Windows connait
+  - il dit si le pilote Brother est bien installe
+  - il envoie tout de suite une etiquette de test
+
+Ce qui doit sortir du rouleau :
+  - un trait noir sur toute la largeur, en haut et en bas
+  - un trait de 50 mm exactement (mesurez-le a la regle)
+  - un rectangle noir bien uniforme
+  - deux reperes dans les coins du bas
+
+RECOPIEZ-MOI TOUT CE QUE LA FENETRE NOIRE AFFICHE, et dites-moi si
+quelque chose est sorti de l'imprimante. C'est la seule information
+dont j'ai besoin pour la suite.
+
+
+ETAPE 3 - SEULEMENT SI L'ETAPE 2 A IMPRIME
+------------------------------------------
+
+Double-cliquez sur :
+
+        2-DEMARRER-SERVEUR.bat
+
+Il affiche une adresse du type http://192.168.1.18:3001
+Ouvrez cette adresse dans Chrome, sur la tablette de la cuisine.
+Laissez la fenetre noire ouverte : la fermer arrete le serveur.
+
+
+======================================================================
+  A NE PAS LANCER
+======================================================================
+
+Le dossier "outils-anciens" contient sonde.bat, variantes.bat et
+diagnostic.bat. Ils testaient une ancienne methode qui n'imprime pas
+sur ce modele. Leur resultat ne changera jamais : ports ouverts,
+"0 octet recu", papier qui avance un peu sans rien ecrire.
+
+Ne les relancez pas. Le seul fichier utile aujourd'hui est
+1-VERIFIER-IMPRIMANTE.bat
+
+
+======================================================================
+  SI VOUS N'AVEZ PAS NODE.JS
+======================================================================
+
+1-VERIFIER-IMPRIMANTE.bat vous le dira. Dans ce cas :
+https://nodejs.org > bouton "LTS" > installez > redemarrez
+l'ordinateur > relancez 1-VERIFIER-IMPRIMANTE.bat

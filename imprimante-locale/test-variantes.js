@@ -40,7 +40,7 @@ function depackBits(b) {
   await new Promise(r => imprimante.listen(9100, '127.0.0.1', r));
 
   await new Promise((res, rej) => {
-    const p = spawn(process.execPath, [__dirname + '/variantes.js', '--imprimante', '127.0.0.1'],
+    const p = spawn(process.execPath, [__dirname + '/outils-anciens/variantes.js', '--imprimante', '127.0.0.1'],
       { stdio: 'ignore' });
     p.on('exit', res); p.on('error', rej);
   });

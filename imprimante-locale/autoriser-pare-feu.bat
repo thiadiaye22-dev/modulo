@@ -32,7 +32,7 @@ if errorlevel 1 (
   echo   OK : le port 3001 est maintenant autorise.
   echo.
   echo   La tablette devrait voir le serveur.
-  echo   Relancez demarrer.bat, puis reessayez sur la tablette.
+  echo   Relancez 2-DEMARRER-SERVEUR.bat, puis reessayez sur la tablette.
 )
 
 echo.

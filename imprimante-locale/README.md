@@ -22,6 +22,22 @@ les commandes, avance le papier, mais n'imprime pas les points. L'encodage exact
 qu'elle attend n'a pas pu être identifié à distance. Le code et ses outils de
 diagnostic sont conservés, mais ne comptez pas sur cette voie.
 
+## Par où commencer
+
+Sur l'ordinateur Windows, dans l'ordre :
+
+1. Installer le pilote Brother (voir ci-dessous).
+2. Double-cliquer sur **`1-VERIFIER-IMPRIMANTE.bat`** — il contrôle
+   l'installation et imprime aussitôt une étiquette de test. Si rien ne sort
+   ici, rien ne sortira depuis la tablette non plus, et il dit pourquoi.
+3. Double-cliquer sur **`2-DEMARRER-SERVEUR.bat`**, puis ouvrir l'adresse
+   affichée dans Chrome sur la tablette.
+
+`LISEZ-MOI.txt` reprend ces trois étapes en détail, sans jargon.
+
+Le dossier `outils-anciens` ne sert plus : ses outils testaient l'envoi direct,
+qui n'imprime pas sur ce modèle.
+
 ## Ce qu'il vous faut
 
 - Un ordinateur **Windows**, **allumé**, sur le même réseau que l'imprimante
@@ -38,7 +54,7 @@ avec Node, et PowerShell pour dialoguer avec le pilote.
 
 ## Démarrage
 
-**Windows** — double-cliquez sur `demarrer.bat`.
+**Windows** — double-cliquez sur `2-DEMARRER-SERVEUR.bat`.
 **Mac / Linux** — double-cliquez sur `demarrer.sh`, ou lancez `node serveur.js`.
 
 Pas d'adresse IP à saisir : le serveur cherche l'imprimante tout seul sur le
@@ -112,7 +128,7 @@ rouleau.
 
 Pour que le serveur reparte tout seul après un redémarrage :
 
-**Windows** — créez un raccourci vers `demarrer.bat` dans
+**Windows** — créez un raccourci vers `2-DEMARRER-SERVEUR.bat` dans
 `shell:startup` (touche Windows + R, puis tapez `shell:startup`).
 
 **Mac / Linux** — ajoutez à `crontab -e` :
@@ -127,7 +143,7 @@ Pour que le serveur reparte tout seul après un redémarrage :
 npm test
 ```
 
-Sept séries de tests, sans imprimante réelle :
+Huit séries de tests, sans imprimante réelle :
 
 - `test-raster.js` — reconstruit l'image à partir du flux produit et vérifie
   qu'elle correspond exactement à l'image de départ (centrage sur les 720 points
@@ -138,19 +154,32 @@ Sept séries de tests, sans imprimante réelle :
   vérifie les octets réellement reçus, ainsi que le rejet des requêtes invalides
 - `test-envoi.js` — envoie un travail réaliste à une imprimante qui lit
   lentement, et vérifie qu'aucun octet ne manque
+- `test-etat.js` — décodage des 32 octets d'état : rouleau, longueur, erreurs
 - `test-variantes.js` — les cinq formats raster sont bien formés et distincts
+- `test-png.js` — l'image 1 bit produite se relit à l'identique, avec la bonne
+  convention (un bit posé donne un point noir)
 - `test-pilote.js` — reconnaissance des étiqueteuses Brother par leur nom, refus
   propre hors Windows, et repli du serveur sur l'envoi direct
 
 ## Outils de diagnostic
 
-Tous se lancent d'un double-clic sous Windows :
+`1-VERIFIER-IMPRIMANTE.bat` est le seul outil de diagnostic à jour : il liste
+les imprimantes vues par Windows, signale celles qui sont des étiqueteuses
+Brother, puis imprime une étiquette de test dont l'échelle est mesurable à la
+règle.
 
-| Fichier | Rôle |
-|---|---|
-| `diagnostic.bat` | Interroge l'imprimante : rouleau, erreurs, octets bruts |
-| `sonde.bat` | Ports ouverts, réponses aux commandes, test d'avance papier |
-| `variantes.bat` | Essaie cinq formats de données raster, un par un |
+Le dossier `outils-anciens` conserve trois sondes de l'envoi direct. Elles ont
+servi à établir le comportement décrit plus bas, et **leur résultat ne changera
+plus** : les lancer ne renseigne rien. Leurs `.bat` affichent d'ailleurs un
+avertissement au lieu de s'exécuter ; passer par `node outils-anciens/sonde.js`
+les force.
+
+| Fichier | Rôle | État |
+|---|---|---|
+| `1-VERIFIER-IMPRIMANTE.bat` | Pilote installé ? étiquette de test | à jour |
+| `outils-anciens/diagnostic.js` | Interroge l'imprimante : rouleau, erreurs | abandonné |
+| `outils-anciens/sonde.js` | Ports, réponses aux commandes, avance papier | abandonné |
+| `outils-anciens/variantes.js` | Cinq formats de données raster, un par un | abandonné |
 
 ## Ce qui n'a pas pu être vérifié ici
 

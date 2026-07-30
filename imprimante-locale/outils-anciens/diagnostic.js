@@ -4,8 +4,8 @@
 // À lancer quand l'impression est refusée : le résultat dit exactement quel
 // rouleau l'imprimante croit avoir et quelles erreurs sont en cours.
 
-const recherche = require('./recherche');
-const etatImprimante = require('./etat');
+const recherche = require('../recherche');
+const etatImprimante = require('../etat');
 
 function lireOption(nom, defaut) {
   const i = process.argv.indexOf('--' + nom);

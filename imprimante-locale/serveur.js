@@ -500,7 +500,7 @@ async function demarrer() {
       console.log('  A FAIRE :');
       console.log('   1. Fermez TOUTES les autres fenetres noires');
       console.log('      "Serveur d\'impression des etiquettes DLC"');
-      console.log('   2. Relancez demarrer.bat');
+      console.log('   2. Relancez 2-DEMARRER-SERVEUR.bat');
       console.log('');
       console.log('  Important : l\'ancienne fenetre fait tourner l\'ANCIENNE');
       console.log('  version. Tant qu\'elle est ouverte, la tablette lui parle');

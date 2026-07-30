@@ -43,10 +43,10 @@ if not exist "serveur.js" (
   echo    2. CLIC DROIT dessus, puis "Extraire tout..."
   echo    3. Choisissez le Bureau et validez
   echo    4. Ouvrez le dossier extrait, puis "imprimante-locale"
-  echo    5. Double-cliquez sur demarrer.bat DEPUIS CE DOSSIER
+  echo    5. Double-cliquez sur 2-DEMARRER-SERVEUR.bat DEPUIS CE DOSSIER
   echo.
   echo   Le dossier doit contenir : serveur.js, raster.js,
-  echo   recherche.js et demarrer.bat
+  echo   recherche.js et 2-DEMARRER-SERVEUR.bat
   echo.
   pause
   exit /b 1
