@@ -136,18 +136,25 @@ function lireCorps(req, maxOctets) {
 // Le format de papier à imposer au pilote. Un format sur mesure franchit la
 // couche Windows, mais l'imprimante jette sans un mot un travail dont la
 // description du média ne correspond pas au rouleau chargé — la file se vide
-// et rien ne sort. On impose donc le format que le pilote déclare lui-même
-// pour le rouleau continu de 62 mm, résolu une fois puis mémorisé.
-let FORMAT_PILOTE_MEMO;
-async function formatPilote() {
-  if (FORMAT_PILOTE_MEMO !== undefined) return FORMAT_PILOTE_MEMO;
+// et rien ne sort. La règle : si le format PAR DEFAUT du pilote a la largeur
+// demandée par la tablette, on le garde (c'est lui que l'installation Brother
+// a réglé pour le rouleau en place, prédécoupé ou continu) ; sinon on prend
+// le format que le pilote déclare pour cette largeur de rouleau.
+let REGLAGES_PILOTE_MEMO;
+async function reglagesPilote() {
+  if (REGLAGES_PILOTE_MEMO !== undefined) return REGLAGES_PILOTE_MEMO;
   const r = await pilote.listerFormats(IMPRIMANTE_PILOTE);
-  const f = r.ok ? pilote.formatPourRouleau(r.formats, 62) : null;
-  FORMAT_PILOTE_MEMO = f ? f.nom : null;
-  if (FORMAT_PILOTE_MEMO) {
-    console.log(`  Format du pilote retenu pour le rouleau 62 mm : "${FORMAT_PILOTE_MEMO}"`);
+  REGLAGES_PILOTE_MEMO = r.ok ? r : null;
+  return REGLAGES_PILOTE_MEMO;
+}
+async function formatPilote(largeurMm) {
+  const r = await reglagesPilote();
+  if (!r) return null;
+  if (r.defaut && Math.abs(pilote.enMm(r.defaut.largeur) - largeurMm) < 1.5) {
+    return r.defaut.nom;
   }
-  return FORMAT_PILOTE_MEMO;
+  const f = pilote.formatPourRouleau(r.formats, largeurMm);
+  return f ? f.nom : null;
 }
 
 // Corps attendu : { pages: [{ bits: base64, largeurPoints, hauteur }], options }
@@ -173,7 +180,9 @@ async function traiterImpression(req, rep) {
         erreur: `page ${sansPng + 1} : image PNG absente. Rechargez la page de ` +
                 `l'application sur la tablette pour prendre la nouvelle version.` });
     }
-    const format = await formatPilote();
+    const largeurMm = Number(demande.options && demande.options.largeurMm) || 62;
+    const format = await formatPilote(largeurMm);
+    if (format) console.log(`  Format du pilote pour ${largeurMm} mm : "${format}"`);
     const resultats = [];
     for (let i = 0; i < demande.pages.length; i++) {
       const p = demande.pages[i];

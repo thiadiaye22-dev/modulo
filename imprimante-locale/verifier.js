@@ -12,32 +12,39 @@ const png = require('./png');
 
 const PPP = 300;
 const mm = (n) => Math.round(n * PPP / 25.4);
-const LARGEUR = 696;                     // zone imprimable d'un rouleau 62 mm
-const OCTETS = LARGEUR / 8;
 
-// Étiquette de test : un repère de 50 mm pour contrôler l'échelle, un aplat noir
-// pour contrôler la densité, et deux traits pleins pour contrôler le centrage.
-function imageTest() {
+// Étiquette de test : un repère millimétré pour contrôler l'échelle, un aplat
+// noir pour contrôler la densité, et deux traits pleins pour le centrage.
+// La largeur suit le format du pilote : 696 points sur du 62 mm, 306 sur du 29.
+function imageTest(largeur) {
+  const octets = Math.ceil(largeur / 8);
   const hauteur = mm(40);
-  const bits = Buffer.alloc(OCTETS * hauteur);
+  const bits = Buffer.alloc(octets * hauteur);
   const poser = (x, y) => {
-    if (x < 0 || x >= LARGEUR || y < 0 || y >= hauteur) return;
-    bits[y * OCTETS + (x >> 3)] |= 0x80 >> (x & 7);
+    if (x < 0 || x >= largeur || y < 0 || y >= hauteur) return;
+    bits[y * octets + (x >> 3)] |= 0x80 >> (x & 7);
   };
   const rectangle = (x0, y0, l, h) => {
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + l; x++) poser(x, y);
   };
 
-  rectangle(0, mm(2), LARGEUR, mm(1.5));           // trait pleine largeur, en haut
-  rectangle(mm(2), mm(7), mm(50), mm(1.5));        // repère de 50 mm
-  rectangle(mm(2), mm(13), LARGEUR - mm(4), mm(12)); // aplat noir
-  rectangle(0, mm(30), LARGEUR, mm(1.5));          // trait pleine largeur, en bas
+  // Le repère fait 50 mm quand la largeur le permet, sinon 20 mm.
+  const repereMm = largeur >= mm(54) ? 50 : 20;
 
-  // Quatre repères d'angle, pour voir si un bord est rogné.
-  [[0, mm(35)], [LARGEUR - mm(5), mm(35)]].forEach(([x, y]) => rectangle(x, y, mm(5), mm(3)));
+  rectangle(0, mm(2), largeur, mm(1.5));            // trait pleine largeur, en haut
+  rectangle(mm(2), mm(7), mm(repereMm), mm(1.5));   // repère millimétré
+  rectangle(mm(2), mm(13), largeur - mm(4), mm(12)); // aplat noir
+  rectangle(0, mm(30), largeur, mm(1.5));           // trait pleine largeur, en bas
 
-  return { bits, largeur: LARGEUR, hauteur };
+  // Repères d'angle, pour voir si un bord est rogné.
+  [[0, mm(35)], [largeur - mm(5), mm(35)]].forEach(([x, y]) => rectangle(x, y, mm(5), mm(3)));
+
+  return { bits, largeur, hauteur, repereMm };
 }
+
+// Zone imprimable d'un format du pilote : sa largeur moins les marges de tête
+// d'impression (≈ 1,5 mm de chaque côté). 62 mm → 696 points, 29 mm → 306.
+const pointsPourFormat = (largeurMm) => Math.round((largeurMm - 3.1) * PPP / 25.4);
 
 function lireOption(nom, defaut) {
   const i = process.argv.indexOf('--' + nom);
@@ -188,10 +195,12 @@ function lireOption(nom, defaut) {
     }
     if (reglages.formats.length) {
       const tous = process.argv.includes('--tous-formats');
+      // Par défaut : seulement les largeurs de rouleau utilisées ici, 29 et 62.
       const visibles = tous ? reglages.formats
-        : reglages.formats.filter(f => Math.abs(pilote.enMm(f.largeur) - 62) < 1.5);
+        : reglages.formats.filter(f => [29, 62].some(
+            lg => Math.abs(pilote.enMm(f.largeur) - lg) < 1.5));
       console.log('');
-      console.log(`  Formats du pilote en 62 mm de large` +
+      console.log(`  Formats du pilote en 29 et 62 mm de large` +
                   (tous ? '' : ` (--tous-formats pour les ${reglages.formats.length})`) + ' :');
       visibles.forEach(f => {
         console.log(`    ${pilote.enMm(f.largeur).toString().padStart(6)} x ` +
@@ -201,32 +210,48 @@ function lireOption(nom, defaut) {
   }
   console.log('');
 
-  // 5. Le format d'impression. Un format sur mesure franchit la couche
-  // Windows, mais si sa description ne correspond pas au rouleau chargé,
+  // 5. Le format d'impression. La règle d'or : la description du média dans
+  // le travail doit correspondre au rouleau réellement chargé, sinon
   // l'imprimante jette le travail sans un mot — la file se vide, rien ne
-  // sort. On impose donc le format que le pilote lui-même déclare pour le
-  // rouleau continu de 62 mm, sauf si --format en désigne un autre.
-  let formatRetenu = format;
-  if (!formatRetenu && reglages.ok) {
-    const f = pilote.formatPourRouleau(reglages.formats, 62);
-    if (f) {
-      formatRetenu = f.nom;
-      console.log(`  Format retenu : "${f.nom}" (${pilote.enMm(f.largeur)} x ` +
-                  `${pilote.enMm(f.hauteur)} mm), le format du pilote qui`);
-      console.log('  correspond au rouleau continu de 62 mm.');
-    } else {
-      console.log('  Aucun format 62 mm declare par le pilote : le format sur');
-      console.log('  mesure sera tente. Si rien ne sort, le rouleau et le pilote');
-      console.log('  ne se correspondent pas.');
-    }
-  } else if (formatRetenu) {
-    console.log(`  Format impose : ${formatRetenu}`);
+  // sort. Le plus sûr est donc le format PAR DEFAUT du pilote : c'est celui
+  // que l'installation Brother a réglé pour le rouleau en place.
+  //   --rouleau 29|62   impose la largeur (formats du pilote correspondants)
+  //   --format "nom"    impose un format précis du pilote
+  const rouleau = lireOption('rouleau', '');
+  let choisi = null;
+  if (format && reglages.ok) {
+    choisi = reglages.formats.find(f => f.nom === format) || null;
+    if (!choisi) console.log(`  Format "${format}" inconnu du pilote — on continue sans.`);
+  } else if (rouleau && reglages.ok) {
+    choisi = pilote.formatPourRouleau(reglages.formats, +rouleau);
+    if (!choisi) console.log(`  Aucun format de ${rouleau} mm declare par le pilote.`);
+  }
+  if (!choisi && reglages.ok && reglages.defaut) {
+    choisi = reglages.defaut;
+  }
+
+  let formatRetenu, largeurImage;
+  if (choisi) {
+    formatRetenu = choisi.nom;
+    largeurImage = pointsPourFormat(pilote.enMm(choisi.largeur));
+    console.log(`  Format retenu : "${choisi.nom}" — ${pilote.enMm(choisi.largeur)} x ` +
+                `${pilote.enMm(choisi.hauteur)} mm`);
+    console.log('');
+    console.log('  CE FORMAT DOIT CORRESPONDRE AU ROULEAU DANS L\'IMPRIMANTE.');
+    console.log('  Sinon, l\'imprimante jettera le travail sans rien afficher.');
+    console.log('  Pour un autre rouleau : relancez avec  --rouleau 62  (ou 29),');
+    console.log('  ou changez le format par defaut dans Parametres > Imprimantes');
+    console.log('  et scanners > Brother > Preferences d\'impression.');
+  } else {
+    formatRetenu = '';
+    largeurImage = 696;
+    console.log('  Formats du pilote illisibles : format sur mesure tente en 62 mm.');
   }
   console.log('');
 
   // 6. Impression de l'étiquette de test
   console.log('  Envoi d\'une etiquette de test au pilote...');
-  const img = imageTest();
+  const img = imageTest(largeurImage);
   const image = png.encoder1bit(img.bits, img.largeur, img.hauteur);
 
   const r = await pilote.imprimerPng(image, {
@@ -290,21 +315,25 @@ function lireOption(nom, defaut) {
   console.log('');
   console.log('  REGARDEZ L\'IMPRIMANTE.');
   console.log('');
-  console.log('  Ce qui doit sortir (le dessin occupe les 40 premiers mm ;');
-  console.log('  avec le format "62mm" du pilote, la coupe se fait vers 90 mm,');
-  console.log('  le reste est blanc — c\'est normal pour ce test) :');
+  const coupe = choisi ? Math.round(pilote.enMm(choisi.hauteur)) : 90;
+  console.log('  Ce qui doit sortir (le dessin occupe les 40 premiers mm, la');
+  console.log(`  coupe se fait vers ${coupe} mm, le reste est blanc — c'est`);
+  console.log('  normal pour ce test) :');
   console.log('   - un trait noir sur toute la largeur, en haut et en bas');
-  console.log('   - un trait de 50 mm exactement (mesurez a la regle)');
+  console.log(`   - un trait de ${img.repereMm} mm exactement (mesurez a la regle)`);
   console.log('   - un rectangle noir bien uniforme');
   console.log('   - deux reperes dans les coins du bas');
   console.log('');
   console.log('  ETIQUETTE CONFORME  ->  tout fonctionne. Lancez ensuite');
-  console.log('                          2-DEMARRER-SERVEUR.bat');
+  console.log('                          2-DEMARRER-SERVEUR.bat, et sur la');
+  console.log('                          tablette, reglez "Largeur du rouleau"');
+  console.log('                          sur la largeur du rouleau charge.');
   console.log('');
-  console.log('  RIEN NE SORT        ->  le travail attend dans la file Windows.');
-  console.log('                          Parametres > Imprimantes et scanners >');
-  console.log('                          la Brother > "Ouvrir la file d\'attente" :');
-  console.log('                          l\'etat du travail dit ce qui bloque.');
+  console.log('  RIEN NE SORT        ->  le format retenu ci-dessus ne correspond');
+  console.log('                          sans doute pas au rouleau charge :');
+  console.log('                          relancez avec  --rouleau 62  ou  --rouleau 29');
+  console.log('                          Sinon, la file d\'attente Windows dira ce');
+  console.log('                          qui bloque (Parametres > Imprimantes).');
   console.log('');
   console.log('  DU PAPIER BLANC SORT ->  l\'image part au mauvais endroit ou le');
   console.log('                          format ne correspond pas. Notez la ligne');

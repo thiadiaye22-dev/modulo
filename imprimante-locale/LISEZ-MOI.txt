@@ -62,6 +62,22 @@ Il affiche une adresse du type http://192.168.1.18:3001
 Ouvrez cette adresse dans Chrome, sur la tablette de la cuisine.
 Laissez la fenetre noire ouverte : la fermer arrete le serveur.
 
+IMPORTANT - LA LARGEUR DU ROULEAU :
+
+Sur la tablette, dans les reglages de l'application, mettez
+"Largeur du rouleau" sur la largeur du rouleau REELLEMENT charge
+dans l'imprimante (29 ou 62).
+
+Si ce reglage ne correspond pas, l'etiquette est dessinee trop
+large et tout ce qui est centre — la date "A CONSOMMER AVANT LE",
+le code-barres — part dans la partie coupee : le nom sort, la date
+non. C'est exactement ce symptome-la.
+
+La meme regle vaut pour l'imprimante : le format regle dans le
+pilote Windows doit correspondre au rouleau charge, sinon elle
+jette le travail sans rien afficher. La verification (etape 2)
+affiche le format retenu et s'adapte toute seule.
+
 
 ======================================================================
   A NE PAS LANCER
