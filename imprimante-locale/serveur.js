@@ -22,7 +22,7 @@ const PORT_IMPRIMANTE = 9100;
 
 // Affiché au démarrage : permet de vérifier d'un coup d'œil quelle version
 // tourne réellement, et d'écarter le cas d'une ancienne archive relancée.
-const VERSION = 'v9 — impression par le pilote Brother';
+const VERSION = 'v10 — largeur du rouleau suivie automatiquement';
 
 function lireOption(nom, valeurParDefaut) {
   const i = process.argv.indexOf('--' + nom);
@@ -323,8 +323,23 @@ const serveur = http.createServer(async (req, rep) => {
     if (METHODE === 'pilote' && IMPRIMANTE_PILOTE) {
       reponse.joignable = true;
       reponse.detail = 'pilote Brother : ' + IMPRIMANTE_PILOTE;
+      // Cette imprimante ne répond pas aux demandes d'état : le rouleau se
+      // déduit du format par défaut du pilote. C'est ce qui permet à
+      // l'application de la tablette de se régler toute seule sur la bonne
+      // largeur — sans quoi elle dessine trop large et tout ce qui est
+      // centré (la date, le code-barres) part dans la zone coupée.
+      const r = await reglagesPilote();
+      if (r && r.defaut) {
+        const largeurMm = Math.round(pilote.enMm(r.defaut.largeur));
+        reponse.support = {
+          largeurMm,
+          pointsImprimables: Math.round((largeurMm - 3.1) * 300 / 25.4),
+          libelle: `rouleau ${largeurMm} mm — réglage du pilote Brother`,
+          erreurs: []
+        };
+      }
     }
-    if (base.joignable) {
+    if (base.joignable && !reponse.support) {
       const lu = await etatImprimante.lireEtat(IMPRIMANTE);
       if (lu.ok) {
         reponse.support = lu.etat;

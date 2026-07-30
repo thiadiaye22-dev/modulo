@@ -80,7 +80,7 @@
 </style>
 
 <header>
-  <h1>🏷️ Étiquettes DLC</h1>
+  <h1>🏷️ Étiquettes DLC <small style="font-size:11px;font-weight:400;opacity:.55">v10</small></h1>
   <span id="etat-serveur">Vérification…</span>
 </header>
 
@@ -578,6 +578,9 @@ async function verifierServeur() {
         select.value = String(supportCharge.largeurMm);
         enregistrerReglages();
       }
+      // La largeur a pu changer : l'aperçu doit être redessiné à la bonne
+      // taille, sinon il montre encore l'étiquette de l'ancien rouleau.
+      rafraichirApercu();
     }
   } catch (e) {
     badge.textContent = '✗ Serveur injoignable';
