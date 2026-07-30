@@ -133,6 +133,23 @@ function lireCorps(req, maxOctets) {
   });
 }
 
+// Le format de papier à imposer au pilote. Un format sur mesure franchit la
+// couche Windows, mais l'imprimante jette sans un mot un travail dont la
+// description du média ne correspond pas au rouleau chargé — la file se vide
+// et rien ne sort. On impose donc le format que le pilote déclare lui-même
+// pour le rouleau continu de 62 mm, résolu une fois puis mémorisé.
+let FORMAT_PILOTE_MEMO;
+async function formatPilote() {
+  if (FORMAT_PILOTE_MEMO !== undefined) return FORMAT_PILOTE_MEMO;
+  const r = await pilote.listerFormats(IMPRIMANTE_PILOTE);
+  const f = r.ok ? pilote.formatPourRouleau(r.formats, 62) : null;
+  FORMAT_PILOTE_MEMO = f ? f.nom : null;
+  if (FORMAT_PILOTE_MEMO) {
+    console.log(`  Format du pilote retenu pour le rouleau 62 mm : "${FORMAT_PILOTE_MEMO}"`);
+  }
+  return FORMAT_PILOTE_MEMO;
+}
+
 // Corps attendu : { pages: [{ bits: base64, largeurPoints, hauteur }], options }
 async function traiterImpression(req, rep) {
   let demande;
@@ -156,13 +173,15 @@ async function traiterImpression(req, rep) {
         erreur: `page ${sansPng + 1} : image PNG absente. Rechargez la page de ` +
                 `l'application sur la tablette pour prendre la nouvelle version.` });
     }
+    const format = await formatPilote();
     const resultats = [];
     for (let i = 0; i < demande.pages.length; i++) {
       const p = demande.pages[i];
       const r = await pilote.imprimerPng(Buffer.from(p.png, 'base64'), {
         imprimante: IMPRIMANTE_PILOTE,
         largeurPoints: p.largeurPoints || raster.POINTS_IMPRIMABLES_62,
-        hauteurPoints: p.hauteur
+        hauteurPoints: p.hauteur,
+        format: format || undefined
       });
       if (!r.ok) {
         return json(rep, 502, { ok: false,

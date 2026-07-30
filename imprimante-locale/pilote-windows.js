@@ -82,22 +82,46 @@ async function listerFormats(imprimante) {
   return analyserFormats(r.sortie);
 }
 
+// Un Windows en français écrit les décimales avec une virgule (« 236,22 ») :
+// on la ramène au point avant de convertir, sinon la valeur devient NaN.
+const nombre = (s) => +String(s == null ? '' : s).replace(',', '.');
+
 // Séparé de l'appel à PowerShell pour être vérifiable sans Windows.
 function analyserFormats(sortie) {
   const res = { ok: true, defaut: null, zone: null, formats: [], resolutions: [] };
   sortie.split(/\r?\n/).forEach((ligne) => {
     const c = ligne.split('\t').map(s => s.trim());
     if (c[0] === 'DEFAUT') {
-      res.defaut = { nom: c[1], largeur: +c[2], hauteur: +c[3], genre: c[4] };
+      res.defaut = { nom: c[1], largeur: nombre(c[2]), hauteur: nombre(c[3]), genre: c[4] };
     } else if (c[0] === 'ZONE') {
-      res.zone = { x: +c[1], y: +c[2], largeur: +c[3], hauteur: +c[4] };
+      res.zone = { x: nombre(c[1]), y: nombre(c[2]), largeur: nombre(c[3]), hauteur: nombre(c[4]) };
     } else if (c[0] === 'FORMAT') {
-      res.formats.push({ nom: c[1], largeur: +c[2], hauteur: +c[3], genre: c[4] });
+      res.formats.push({ nom: c[1], largeur: nombre(c[2]), hauteur: nombre(c[3]), genre: c[4] });
     } else if (c[0] === 'RESOLUTION') {
-      res.resolutions.push({ genre: c[1], x: +c[2], y: +c[3] });
+      // Les « résolutions » négatives sont les niveaux génériques de Windows
+      // (brouillon, haute…), sans valeur en points par pouce : on les ignore.
+      const x = nombre(c[2]), y = nombre(c[3]);
+      if (x > 0 && y > 0) res.resolutions.push({ genre: c[1], x, y });
     }
   });
   return res;
+}
+
+/**
+ * Choisit, parmi les formats déclarés par le pilote, celui du rouleau continu
+ * de la largeur donnée — « 62mm » pour un DK-22205. C'est le format que le
+ * pilote sait réellement encoder pour ce média ; un format sur mesure passe
+ * la couche Windows mais peut être jeté sans un mot par l'imprimante si sa
+ * description ne correspond pas au rouleau chargé.
+ */
+function formatPourRouleau(formats, largeurMm) {
+  const exact = formats.find(f => f.nom === `${largeurMm}mm`);
+  if (exact) return exact;
+  // À défaut du nom exact : un format de la bonne largeur, le plus court.
+  const candidats = formats
+    .filter(f => Math.abs(f.largeur / 100 * 25.4 - largeurMm) < 1.5)
+    .sort((a, b) => a.hauteur - b.hauteur);
+  return candidats[0] || null;
 }
 
 // Codes d'état de Win32_Printer, traduits.
@@ -199,7 +223,7 @@ async function imprimerPng(png, opt) {
 }
 
 module.exports = {
-  disponible, listerImprimantes, listerFormats, analyserFormats,
+  disponible, listerImprimantes, listerFormats, analyserFormats, formatPourRouleau,
   lireFile, analyserFile, purgerFile,
   imprimerPng, estEtiqueteuseBrother, enMm
 };

@@ -108,6 +108,33 @@ function requete(chemin, corps) {
     assert.strictEqual(r.resolutions[0].y, 600);
   });
 
+  verifier('les decimales a la francaise et les fausses resolutions', () => {
+    // Un Windows en français écrit « 236,22 » ; les résolutions négatives
+    // sont les niveaux génériques (brouillon, haute…), sans valeur en ppp.
+    const brut = [
+      'ZONE\t5,91\t0\t236,22\t3937,01',
+      'RESOLUTION\tHigh\t-4\t-1',
+      'RESOLUTION\tCustom\t300\t600'
+    ].join('\r\n');
+    const r = pilote.analyserFormats(brut);
+    assert.deepStrictEqual(r.zone, { x: 5.91, y: 0, largeur: 236.22, hauteur: 3937.01 });
+    assert.strictEqual(r.resolutions.length, 1);
+    assert.deepStrictEqual(r.resolutions[0], { genre: 'Custom', x: 300, y: 600 });
+  });
+
+  verifier('le format du rouleau 62 mm se choisit tout seul', () => {
+    const formats = [
+      { nom: '29mm x 90mm', largeur: 114, hauteur: 354, genre: 'Custom' },
+      { nom: '62mm x 100mm', largeur: 244, hauteur: 393, genre: 'Custom' },
+      { nom: '62mm', largeur: 244, hauteur: 354, genre: 'Custom' }
+    ];
+    assert.strictEqual(pilote.formatPourRouleau(formats, 62).nom, '62mm');
+    // Sans le nom exact : la bonne largeur, le plus court d'abord.
+    const sansExact = formats.filter(f => f.nom !== '62mm');
+    assert.strictEqual(pilote.formatPourRouleau(sansExact, 62).nom, '62mm x 100mm');
+    assert.strictEqual(pilote.formatPourRouleau(formats, 12), null);
+  });
+
   verifier('une sortie vide ne fait pas echouer la lecture', () => {
     const r = pilote.analyserFormats('');
     assert.strictEqual(r.ok, true);

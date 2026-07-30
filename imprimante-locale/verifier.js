@@ -187,9 +187,13 @@ function lireOption(nom, defaut) {
         reglages.resolutions.map(r => `${r.x}x${r.y}`).join(', ') + ' ppp');
     }
     if (reglages.formats.length) {
+      const tous = process.argv.includes('--tous-formats');
+      const visibles = tous ? reglages.formats
+        : reglages.formats.filter(f => Math.abs(pilote.enMm(f.largeur) - 62) < 1.5);
       console.log('');
-      console.log(`  Formats declares par le pilote (${reglages.formats.length}) :`);
-      reglages.formats.forEach(f => {
+      console.log(`  Formats du pilote en 62 mm de large` +
+                  (tous ? '' : ` (--tous-formats pour les ${reglages.formats.length})`) + ' :');
+      visibles.forEach(f => {
         console.log(`    ${pilote.enMm(f.largeur).toString().padStart(6)} x ` +
                     `${pilote.enMm(f.hauteur).toString().padEnd(6)} mm   ${f.nom}`);
       });
@@ -197,9 +201,31 @@ function lireOption(nom, defaut) {
   }
   console.log('');
 
-  // 5. Impression de l'étiquette de test
+  // 5. Le format d'impression. Un format sur mesure franchit la couche
+  // Windows, mais si sa description ne correspond pas au rouleau chargé,
+  // l'imprimante jette le travail sans un mot — la file se vide, rien ne
+  // sort. On impose donc le format que le pilote lui-même déclare pour le
+  // rouleau continu de 62 mm, sauf si --format en désigne un autre.
+  let formatRetenu = format;
+  if (!formatRetenu && reglages.ok) {
+    const f = pilote.formatPourRouleau(reglages.formats, 62);
+    if (f) {
+      formatRetenu = f.nom;
+      console.log(`  Format retenu : "${f.nom}" (${pilote.enMm(f.largeur)} x ` +
+                  `${pilote.enMm(f.hauteur)} mm), le format du pilote qui`);
+      console.log('  correspond au rouleau continu de 62 mm.');
+    } else {
+      console.log('  Aucun format 62 mm declare par le pilote : le format sur');
+      console.log('  mesure sera tente. Si rien ne sort, le rouleau et le pilote');
+      console.log('  ne se correspondent pas.');
+    }
+  } else if (formatRetenu) {
+    console.log(`  Format impose : ${formatRetenu}`);
+  }
+  console.log('');
+
+  // 6. Impression de l'étiquette de test
   console.log('  Envoi d\'une etiquette de test au pilote...');
-  if (format) console.log(`  Format impose : ${format}`);
   const img = imageTest();
   const image = png.encoder1bit(img.bits, img.largeur, img.hauteur);
 
@@ -207,7 +233,7 @@ function lireOption(nom, defaut) {
     imprimante,
     largeurPoints: img.largeur,
     hauteurPoints: img.hauteur,
-    format: format || undefined
+    format: formatRetenu || undefined
   });
 
   console.log('');
@@ -234,7 +260,7 @@ function lireOption(nom, defaut) {
   if (r.detail) r.detail.split(/\r?\n/).forEach(l => console.log(`  ${l}`));
   console.log('');
 
-  // 6. Le travail est-il vraiment parti, ou coincé dans la file ?
+  // 7. Le travail est-il vraiment parti, ou coincé dans la file ?
   console.log('  On laisse 8 secondes a Windows, puis on regarde la file...');
   await new Promise(res => setTimeout(res, 8000));
   const apres = await pilote.lireFile(imprimante);
@@ -264,7 +290,9 @@ function lireOption(nom, defaut) {
   console.log('');
   console.log('  REGARDEZ L\'IMPRIMANTE.');
   console.log('');
-  console.log('  Ce qui doit sortir, sur environ 40 mm de long :');
+  console.log('  Ce qui doit sortir (le dessin occupe les 40 premiers mm ;');
+  console.log('  avec le format "62mm" du pilote, la coupe se fait vers 90 mm,');
+  console.log('  le reste est blanc — c\'est normal pour ce test) :');
   console.log('   - un trait noir sur toute la largeur, en haut et en bas');
   console.log('   - un trait de 50 mm exactement (mesurez a la regle)');
   console.log('   - un rectangle noir bien uniforme');
