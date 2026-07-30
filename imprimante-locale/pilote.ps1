@@ -5,16 +5,18 @@
 # on lui confie l'image et il se charge de l'encodage.
 #
 #   .\pilote.ps1 -Action Lister
+#   .\pilote.ps1 -Action Formats -Imprimante "Brother QL-820NWB"
 #   .\pilote.ps1 -Action Imprimer -Fichier etiquette.png -Imprimante "Brother QL-820NWBc" -LargeurPx 696 -HauteurPx 871
 
 param(
-  [Parameter(Mandatory = $true)][ValidateSet('Lister', 'Imprimer')][string]$Action,
+  [Parameter(Mandatory = $true)][ValidateSet('Lister', 'Formats', 'Imprimer')][string]$Action,
   [string]$Fichier,
   [string]$Imprimante,
   [int]$LargeurPx = 696,
   [int]$HauteurPx = 0,
   [int]$Ppp = 300,
-  [int]$Copies = 1
+  [int]$Copies = 1,
+  [string]$Format = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,6 +25,34 @@ function Lister {
   # On renvoie une ligne par imprimante : le programme appelant filtrera.
   Get-CimInstance -ClassName Win32_Printer |
     ForEach-Object { $_.Name }
+}
+
+function Reglages {
+  Add-Type -AssemblyName System.Drawing
+  $doc = New-Object System.Drawing.Printing.PrintDocument
+  $doc.PrinterSettings.PrinterName = $Imprimante
+  if (-not $doc.PrinterSettings.IsValid) {
+    throw "imprimante inconnue de Windows : $Imprimante"
+  }
+  return $doc
+}
+
+# Ce que le pilote Brother déclare savoir faire : ses formats de papier, ses
+# résolutions, et la zone réellement imprimable du format par défaut. C'est la
+# seule façon de savoir si notre format sur mesure a une chance d'être accepté,
+# ou s'il faut passer par un format prédéfini du pilote.
+function Formats {
+  $doc = Reglages
+  $d = $doc.DefaultPageSettings.PaperSize
+  Write-Output "DEFAUT`t$($d.PaperName)`t$($d.Width)`t$($d.Height)`t$($d.Kind)"
+  $zone = $doc.DefaultPageSettings.PrintableArea
+  Write-Output ("ZONE`t{0}`t{1}`t{2}`t{3}" -f $zone.X, $zone.Y, $zone.Width, $zone.Height)
+  foreach ($t in $doc.PrinterSettings.PaperSizes) {
+    Write-Output "FORMAT`t$($t.PaperName)`t$($t.Width)`t$($t.Height)`t$($t.Kind)"
+  }
+  foreach ($r in $doc.PrinterSettings.PrinterResolutions) {
+    Write-Output "RESOLUTION`t$($r.Kind)`t$($r.X)`t$($r.Y)"
+  }
 }
 
 function Imprimer {
@@ -49,16 +79,36 @@ function Imprimer {
     $largeurCent = [int][Math]::Round($LargeurPx * 100.0 / $Ppp)
     $hauteurCent = [int][Math]::Round($HauteurPx * 100.0 / $Ppp)
 
-    # Format de page sur mesure. Certains pilotes le refusent : on retombe
-    # alors sur le format par défaut du pilote plutôt que d'échouer.
-    try {
-      $taille = New-Object System.Drawing.Printing.PaperSize('Etiquette DLC', $largeurCent, $hauteurCent)
-      $taille.RawKind = 0    # 0 = format personnalisé
-      $doc.DefaultPageSettings.PaperSize = $taille
-    } catch {
-      Write-Output "AVERTISSEMENT: format personnalise refuse, format du pilote utilise"
+    if ($Format -ne '') {
+      # Format imposé : on prend celui que le pilote déclare sous ce nom. Le
+      # dessin garde sa taille physique propre, donc rien n'est déformé si le
+      # format du pilote est plus grand que l'étiquette.
+      $choisi = $null
+      foreach ($t in $doc.PrinterSettings.PaperSizes) {
+        if ($t.PaperName -eq $Format) { $choisi = $t; break }
+      }
+      if ($null -eq $choisi) {
+        throw "format inconnu du pilote : $Format (listez-les avec -Action Formats)"
+      }
+      $doc.DefaultPageSettings.PaperSize = $choisi
+    } else {
+      # Format de page sur mesure. Certains pilotes le refusent : on retombe
+      # alors sur le format par défaut du pilote plutôt que d'échouer.
+      try {
+        $taille = New-Object System.Drawing.Printing.PaperSize('Etiquette DLC', $largeurCent, $hauteurCent)
+        $taille.RawKind = 0    # 0 = format personnalisé
+        $doc.DefaultPageSettings.PaperSize = $taille
+      } catch {
+        Write-Output "AVERTISSEMENT: format personnalise refuse, format du pilote utilise"
+      }
     }
     $doc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)
+
+    # On rapporte le format réellement retenu : c'est lui qui explique une
+    # étiquette trop longue, tronquée, ou décalée.
+    $retenu = $doc.DefaultPageSettings.PaperSize
+    Write-Output ("PAGE: {0} {1}x{2} centiemes de pouce (image {3}x{4})" -f `
+      $retenu.PaperName, $retenu.Width, $retenu.Height, $largeurCent, $hauteurCent)
 
     $doc.add_PrintPage({
       param($expediteur, $e)
@@ -78,5 +128,6 @@ function Imprimer {
 
 switch ($Action) {
   'Lister'   { Lister }
+  'Formats'  { Formats }
   'Imprimer' { Imprimer }
 }

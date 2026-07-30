@@ -111,15 +111,49 @@ function lireOption(nom, defaut) {
   console.log(`  Etiqueteuse retenue : ${imprimante}`);
   console.log('');
 
-  // 3. Impression de l'étiquette de test
+  // 3. Ce que le pilote déclare savoir faire
+  const format = lireOption('format', '');
+  const reglages = await pilote.listerFormats(imprimante);
+  if (!reglages.ok) {
+    console.log(`  Formats du pilote : lecture impossible (${reglages.erreur})`);
+  } else {
+    if (reglages.defaut) {
+      const d = reglages.defaut;
+      console.log(`  Format par defaut : ${d.nom} — ` +
+                  `${pilote.enMm(d.largeur)} x ${pilote.enMm(d.hauteur)} mm`);
+    }
+    if (reglages.zone) {
+      const z = reglages.zone;
+      console.log(`  Zone imprimable   : ${pilote.enMm(z.largeur)} x ` +
+                  `${pilote.enMm(z.hauteur)} mm, a partir de ` +
+                  `${pilote.enMm(z.x)} / ${pilote.enMm(z.y)} mm`);
+    }
+    if (reglages.resolutions.length) {
+      console.log('  Resolutions       : ' +
+        reglages.resolutions.map(r => `${r.x}x${r.y}`).join(', ') + ' ppp');
+    }
+    if (reglages.formats.length) {
+      console.log('');
+      console.log(`  Formats declares par le pilote (${reglages.formats.length}) :`);
+      reglages.formats.forEach(f => {
+        console.log(`    ${pilote.enMm(f.largeur).toString().padStart(6)} x ` +
+                    `${pilote.enMm(f.hauteur).toString().padEnd(6)} mm   ${f.nom}`);
+      });
+    }
+  }
+  console.log('');
+
+  // 4. Impression de l'étiquette de test
   console.log('  Envoi d\'une etiquette de test au pilote...');
+  if (format) console.log(`  Format impose : ${format}`);
   const img = imageTest();
   const image = png.encoder1bit(img.bits, img.largeur, img.hauteur);
 
   const r = await pilote.imprimerPng(image, {
     imprimante,
     largeurPoints: img.largeur,
-    hauteurPoints: img.hauteur
+    hauteurPoints: img.hauteur,
+    format: format || undefined
   });
 
   console.log('');
@@ -143,20 +177,31 @@ function lireOption(nom, defaut) {
   console.log('  ==================================================');
   console.log('    ETIQUETTE ENVOYEE AU PILOTE');
   console.log('  ==================================================');
-  if (r.detail) console.log(`  Reponse du pilote : ${r.detail}`);
+  if (r.detail) r.detail.split(/\r?\n/).forEach(l => console.log(`  ${l}`));
   console.log('');
   console.log('  REGARDEZ L\'IMPRIMANTE.');
   console.log('');
-  console.log('  Ce qui doit sortir :');
+  console.log('  Ce qui doit sortir, sur environ 40 mm de long :');
   console.log('   - un trait noir sur toute la largeur, en haut et en bas');
   console.log('   - un trait de 50 mm exactement (mesurez a la regle)');
   console.log('   - un rectangle noir bien uniforme');
   console.log('   - deux reperes dans les coins du bas');
   console.log('');
-  console.log('  Si l\'etiquette sort : tout fonctionne, la tablette peut imprimer.');
-  console.log('  Si rien ne sort : le travail est parti dans la file d\'attente');
-  console.log('  Windows. Ouvrez Imprimantes et scanners, cliquez sur la Brother,');
-  console.log('  puis "Ouvrir la file d\'attente" pour voir ce qui bloque.');
+  console.log('  ETIQUETTE CONFORME  ->  tout fonctionne. Lancez ensuite');
+  console.log('                          2-DEMARRER-SERVEUR.bat');
+  console.log('');
+  console.log('  RIEN NE SORT        ->  le travail attend dans la file Windows.');
+  console.log('                          Parametres > Imprimantes et scanners >');
+  console.log('                          la Brother > "Ouvrir la file d\'attente" :');
+  console.log('                          l\'etat du travail dit ce qui bloque.');
+  console.log('');
+  console.log('  DU PAPIER BLANC SORT ->  l\'image part au mauvais endroit ou le');
+  console.log('                          format ne correspond pas. Notez la ligne');
+  console.log('                          "PAGE:" ci-dessus et la longueur sortie.');
+  console.log('');
+  console.log('  MAUVAISE TAILLE     ->  relancez en imposant un format du pilote,');
+  console.log('                          choisi dans la liste ci-dessus :');
+  console.log('                          node verifier.js --format "62mm"');
   console.log('');
 })().catch(e => {
   console.error('');

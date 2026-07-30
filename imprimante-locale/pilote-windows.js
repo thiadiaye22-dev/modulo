@@ -62,11 +62,49 @@ async function listerImprimantes() {
   return { ok: true, toutes, brother: toutes.filter(estEtiqueteuseBrother) };
 }
 
+// Les tailles remontées par le pilote sont en centièmes de pouce.
+const enMm = (centiemes) => Math.round(centiemes * 0.254 * 10) / 10;
+
+/**
+ * Lit ce que le pilote déclare : ses formats de papier, ses résolutions, et la
+ * zone imprimable du format par défaut.
+ *
+ * Sur un rouleau continu, c'est l'information qui manque le plus : si le pilote
+ * n'accepte pas de format sur mesure, l'étiquette sort à la longueur de son
+ * format par défaut, et il faut alors lui imposer un de ses propres formats.
+ */
+async function listerFormats(imprimante) {
+  if (!disponible()) return { ok: false, erreur: 'disponible uniquement sous Windows' };
+  if (!imprimante) return { ok: false, erreur: 'nom d\'imprimante manquant' };
+
+  const r = await executerPowerShell(['-Action', 'Formats', '-Imprimante', imprimante], 20000);
+  if (!r.ok) return { ok: false, erreur: r.erreur };
+  return analyserFormats(r.sortie);
+}
+
+// Séparé de l'appel à PowerShell pour être vérifiable sans Windows.
+function analyserFormats(sortie) {
+  const res = { ok: true, defaut: null, zone: null, formats: [], resolutions: [] };
+  sortie.split(/\r?\n/).forEach((ligne) => {
+    const c = ligne.split('\t').map(s => s.trim());
+    if (c[0] === 'DEFAUT') {
+      res.defaut = { nom: c[1], largeur: +c[2], hauteur: +c[3], genre: c[4] };
+    } else if (c[0] === 'ZONE') {
+      res.zone = { x: +c[1], y: +c[2], largeur: +c[3], hauteur: +c[4] };
+    } else if (c[0] === 'FORMAT') {
+      res.formats.push({ nom: c[1], largeur: +c[2], hauteur: +c[3], genre: c[4] });
+    } else if (c[0] === 'RESOLUTION') {
+      res.resolutions.push({ genre: c[1], x: +c[2], y: +c[3] });
+    }
+  });
+  return res;
+}
+
 /**
  * Imprime une image PNG par le pilote, à sa taille physique exacte.
  *
  * @param {Buffer} png
- * @param {{imprimante: string, largeurPoints: number, hauteurPoints: number, ppp?: number, copies?: number}} opt
+ * @param {{imprimante: string, largeurPoints: number, hauteurPoints: number, ppp?: number, copies?: number, format?: string}} opt
  */
 async function imprimerPng(png, opt) {
   if (!disponible()) return { ok: false, erreur: 'disponible uniquement sous Windows' };
@@ -78,7 +116,7 @@ async function imprimerPng(png, opt) {
   fs.writeFileSync(fichier, png);
 
   try {
-    const r = await executerPowerShell([
+    const args = [
       '-Action', 'Imprimer',
       '-Fichier', fichier,
       '-Imprimante', opt.imprimante,
@@ -86,7 +124,9 @@ async function imprimerPng(png, opt) {
       '-HauteurPx', String(opt.hauteurPoints),
       '-Ppp', String(opt.ppp || 300),
       '-Copies', String(opt.copies || 1)
-    ], 60000);
+    ];
+    if (opt.format) args.push('-Format', opt.format);
+    const r = await executerPowerShell(args, 60000);
 
     if (!r.ok) return { ok: false, erreur: r.erreur || 'échec de l\'impression' };
     return { ok: true, detail: r.sortie };
@@ -97,4 +137,7 @@ async function imprimerPng(png, opt) {
   }
 }
 
-module.exports = { disponible, listerImprimantes, imprimerPng, estEtiqueteuseBrother };
+module.exports = {
+  disponible, listerImprimantes, listerFormats, analyserFormats,
+  imprimerPng, estEtiqueteuseBrother, enMm
+};

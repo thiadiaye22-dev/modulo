@@ -80,6 +80,41 @@ function requete(chemin, corps) {
     });
   }
 
+  verifier('les tailles du pilote se convertissent en millimetres', () => {
+    assert.strictEqual(pilote.enMm(100), 25.4);   // un pouce
+    assert.strictEqual(pilote.enMm(244), 62);     // largeur du rouleau DK-22205
+    assert.strictEqual(pilote.enMm(0), 0);
+  });
+
+  verifier('la sortie du pilote se relit en formats, zone et resolutions', () => {
+    const brut = [
+      'DEFAUT\t62mm\t244\t3937\tCustom',
+      'ZONE\t5\t0\t236\t3937',
+      'FORMAT\t29mm x 90mm\t114\t354\tCustom',
+      'FORMAT\t62mm\t244\t3937\tCustom',
+      'RESOLUTION\tHigh\t300\t600',
+      'RESOLUTION\tMedium\t300\t300',
+      ''                                    // ligne vide de fin, à ignorer
+    ].join('\r\n');
+    const r = pilote.analyserFormats(brut);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.defaut.nom, '62mm');
+    assert.strictEqual(pilote.enMm(r.defaut.largeur), 62);
+    assert.deepStrictEqual(r.zone, { x: 5, y: 0, largeur: 236, hauteur: 3937 });
+    assert.strictEqual(r.formats.length, 2);
+    assert.strictEqual(r.formats[0].nom, '29mm x 90mm');
+    assert.strictEqual(r.resolutions.length, 2);
+    assert.strictEqual(r.resolutions[0].x, 300);
+    assert.strictEqual(r.resolutions[0].y, 600);
+  });
+
+  verifier('une sortie vide ne fait pas echouer la lecture', () => {
+    const r = pilote.analyserFormats('');
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.defaut, null);
+    assert.deepStrictEqual(r.formats, []);
+  });
+
   const sansNom = await pilote.imprimerPng(Buffer.alloc(10), { hauteurPoints: 10 });
   verifier('un appel sans nom d\'imprimante est refuse', () => {
     assert.strictEqual(sansNom.ok, false);
