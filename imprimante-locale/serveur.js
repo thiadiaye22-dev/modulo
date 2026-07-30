@@ -22,7 +22,7 @@ const PORT_IMPRIMANTE = 9100;
 
 // Affiché au démarrage : permet de vérifier d'un coup d'œil quelle version
 // tourne réellement, et d'écarter le cas d'une ancienne archive relancée.
-const VERSION = 'v10 — largeur du rouleau suivie automatiquement';
+const VERSION = 'v11 — orientation portrait et textes adaptes au 29 mm';
 
 function lireOption(nom, valeurParDefaut) {
   const i = process.argv.indexOf('--' + nom);
@@ -331,10 +331,15 @@ const serveur = http.createServer(async (req, rep) => {
       const r = await reglagesPilote();
       if (r && r.defaut) {
         const largeurMm = Math.round(pilote.enMm(r.defaut.largeur));
+        const longueurMm = Math.round(pilote.enMm(r.defaut.hauteur));
         reponse.support = {
           largeurMm,
+          // La longueur de l'étiquette physique : au-delà, le pilote coupe.
+          // L'application s'en sert pour réduire une étiquette trop haute
+          // plutôt que de la laisser amputer de son code-barres.
+          longueurMm,
           pointsImprimables: Math.round((largeurMm - 3.1) * 300 / 25.4),
-          libelle: `rouleau ${largeurMm} mm — réglage du pilote Brother`,
+          libelle: `rouleau ${largeurMm} x ${longueurMm} mm — réglage du pilote Brother`,
           erreurs: []
         };
       }

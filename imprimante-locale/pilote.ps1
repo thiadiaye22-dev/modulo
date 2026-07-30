@@ -147,11 +147,23 @@ function Imprimer {
     }
     $doc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)
 
+    # L'orientation doit suivre l'image. Certains formats Brother (les
+    # étiquettes d'adresse 29 x 90 notamment) s'ouvrent en paysage : la zone
+    # de dessin ne fait alors que 29 mm de HAUT, et tout ce qui se dessine
+    # au-delà — la date, le code-barres — est jeté sans avertissement.
+    # On reste en portrait, sauf si seule l'orientation paysage peut contenir
+    # l'image sans la rogner.
+    $retenu = $doc.DefaultPageSettings.PaperSize
+    $tientPortrait = ($largeurCent -le $retenu.Width) -and ($hauteurCent -le $retenu.Height)
+    $tientPaysage  = ($largeurCent -le $retenu.Height) -and ($hauteurCent -le $retenu.Width)
+    $doc.DefaultPageSettings.Landscape = (-not $tientPortrait) -and $tientPaysage
+
     # On rapporte le format réellement retenu : c'est lui qui explique une
     # étiquette trop longue, tronquée, ou décalée.
-    $retenu = $doc.DefaultPageSettings.PaperSize
-    Write-Output ("PAGE: {0} {1}x{2} centiemes de pouce (image {3}x{4})" -f `
-      $retenu.PaperName, $retenu.Width, $retenu.Height, $largeurCent, $hauteurCent)
+    Write-Output ("PAGE: {0} {1}x{2} centiemes de pouce, {3} (image {4}x{5})" -f `
+      $retenu.PaperName, $retenu.Width, $retenu.Height, `
+      $(if ($doc.DefaultPageSettings.Landscape) { 'paysage' } else { 'portrait' }), `
+      $largeurCent, $hauteurCent)
 
     $doc.add_PrintPage({
       param($expediteur, $e)
