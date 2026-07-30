@@ -80,6 +80,48 @@ affiche le format retenu et s'adapte toute seule.
 
 
 ======================================================================
+  INSTALLER SUR UN AUTRE ORDINATEUR (par exemple au restaurant)
+======================================================================
+
+Rien n'est attache a un ordinateur ou a un reseau precis. Sur le
+nouvel ordinateur Windows, refaites simplement les etapes dans
+l'ordre :
+
+  1. Connectez l'imprimante au Wi-Fi du restaurant (par son ecran
+     tactile : Menu > WLAN, ou pendant l'installation du pilote).
+     Imprimante, ordinateur et tablette doivent etre sur le MEME
+     Wi-Fi — pas le reseau "invite" de la box.
+
+  2. Installez Node.js : https://nodejs.org, bouton LTS.
+
+  3. Installez le pilote Brother : CommonInstaller.exe, clic droit
+     > Executer en tant qu'administrateur. Modele QL-820NWBc,
+     connexion "reseau sans fil".
+
+  4. Copiez ce dossier sur le nouvel ordinateur (cle USB, ou
+     retelechargez l'archive).
+
+  5. Lancez 1-VERIFIER-IMPRIMANTE.bat : une etiquette de test
+     doit sortir.
+
+  6. Lancez autoriser-pare-feu.bat en clic droit > Executer en
+     tant qu'administrateur (une seule fois).
+
+  7. Lancez 2-DEMARRER-SERVEUR.bat et notez l'adresse affichee.
+     ATTENTION : elle sera differente de celle de chez vous, car
+     le reseau change.
+
+  8. Sur la tablette (connectee au Wi-Fi du restaurant) : ouvrez
+     cette NOUVELLE adresse dans Chrome, verifiez le "v10" a cote
+     du titre, puis menu Chrome > "Ajouter a l'ecran d'accueil".
+     Supprimez l'ancien raccourci : il pointe vers chez vous.
+
+  9. Pour que le serveur redemarre tout seul avec l'ordinateur :
+     touche Windows + R, tapez  shell:startup  , et glissez-y un
+     raccourci vers 2-DEMARRER-SERVEUR.bat.
+
+
+======================================================================
   A NE PAS LANCER
 ======================================================================
 
