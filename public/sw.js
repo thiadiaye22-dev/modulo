@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "planning-resto-v1";
+const CACHE_NAME = "planning-resto-v2";
 const APP_SHELL = [
   "app.html",
   "login.html",
@@ -26,12 +26,28 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Reseau d'abord : les utilisateurs recoivent la derniere version de l'app
+// des qu'ils sont en ligne, le cache ne sert que de secours hors connexion.
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith("/api/")) return; // toujours en reseau
+  if (url.pathname.startsWith("/api/")) return; // toujours en reseau, jamais en cache
+  if (event.request.method !== "GET") return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    fetch(event.request)
+      .then(res => {
+        if (res.ok && url.origin === self.location.origin) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        }
+        return res;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === "navigate") return caches.match("app.html");
+        return Response.error();
+      })
   );
 });
 

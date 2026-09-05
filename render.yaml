@@ -10,3 +10,19 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      # Email de contact requis par le standard des notifications push (VAPID)
+      # - key: VAPID_CONTACT
+      #   value: mailto:ton-email@exemple.fr
+    # ⚠️ IMPORTANT – persistance des donnees :
+    # Sur le plan "free" de Render, le disque est EPHEMERE : comptes, plannings
+    # et pointages sont PERDUS a chaque deploiement ou redemarrage.
+    # Pour un usage reel, passe au plan "starter" et decommente le bloc disque
+    # ci-dessous (les donnees seront alors conservees dans /var/data) :
+    # plan: starter
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # et ajoute dans envVars :
+    #   - key: DATA_DIR
+    #     value: /var/data

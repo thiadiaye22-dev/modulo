@@ -1,10 +1,17 @@
 "use strict";
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const store = require("./store");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const COOKIE_NAME = "token";
 const TOKEN_TTL = "7d";
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+};
 
 function hashPassword(password) {
   return bcrypt.hashSync(password, 10);
@@ -26,25 +33,33 @@ function verifyToken(token) {
   }
 }
 
-function setAuthCookie(res, payload) {
-  const token = signToken(payload);
-  res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+function setAuthCookie(res, user) {
+  // Le token ne porte que l'id : le reste (role, restaurant...) est relu
+  // en base a chaque requete, donc revoquer un compte coupe l'acces immediatement.
+  const token = signToken({ id: user.id });
+  res.cookie(COOKIE_NAME, token, { ...COOKIE_OPTS, maxAge: 7 * 24 * 60 * 60 * 1000 });
 }
 
 function clearAuthCookie(res) {
-  res.clearCookie(COOKIE_NAME);
+  res.clearCookie(COOKIE_NAME, COOKIE_OPTS);
 }
 
 function requireAuth(req, res, next) {
   const token = req.cookies[COOKIE_NAME];
   const payload = token && verifyToken(token);
-  if (!payload) return res.status(401).json({ error: "Non authentifie." });
-  req.user = payload;
+  if (!payload || !payload.id) return res.status(401).json({ error: "Non authentifie." });
+  const user = store.getUserById(payload.id);
+  if (!user) {
+    clearAuthCookie(res);
+    return res.status(401).json({ error: "Compte introuvable ou acces revoque." });
+  }
+  req.user = {
+    id: user.id,
+    restaurantId: user.restaurantId,
+    role: user.role,
+    employeeId: user.employeeId,
+    nom: user.nom,
+  };
   next();
 }
 

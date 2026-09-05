@@ -2,8 +2,9 @@
 const fs = require("fs");
 const path = require("path");
 const webpush = require("web-push");
+const { DATA_DIR } = require("./store");
 
-const VAPID_FILE = path.join(__dirname, "..", "data", "vapid.json");
+const VAPID_FILE = path.join(DATA_DIR, "vapid.json");
 
 function loadOrCreateKeys() {
   try {
@@ -17,7 +18,8 @@ function loadOrCreateKeys() {
 }
 
 const keys = loadOrCreateKeys();
-webpush.setVapidDetails("mailto:contact@example.com", keys.publicKey, keys.privateKey);
+const contact = process.env.VAPID_CONTACT || "mailto:contact@example.com";
+webpush.setVapidDetails(contact, keys.publicKey, keys.privateKey);
 
 function getPublicKey() {
   return keys.publicKey;

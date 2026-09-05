@@ -2,7 +2,9 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(__dirname, "..", "data");
+// DATA_DIR configurable pour pointer vers un disque persistant en production
+// (ex : /var/data sur Render avec un disque monté). Par defaut : ./data
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "..", "data");
 const RESTAURANTS_DIR = path.join(DATA_DIR, "restaurants");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 
@@ -34,6 +36,10 @@ function getUsers() {
 function saveUsers(users) {
   ensureDirs();
   writeJSON(USERS_FILE, users);
+}
+
+function getUserById(id) {
+  return getUsers().find(u => u.id === id) || null;
 }
 
 function restaurantFile(id) {
@@ -93,8 +99,10 @@ function removeSubscriptionByEndpoint(endpoint) {
 }
 
 module.exports = {
+  DATA_DIR,
   getUsers,
   saveUsers,
+  getUserById,
   getRestaurantState,
   saveRestaurantState,
   emptyState,

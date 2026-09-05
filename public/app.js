@@ -1,6 +1,6 @@
 "use strict";
 /* ---------- Donnees (chargees depuis le serveur) ---------- */
-const ABS_LABELS = {CP:"Congés payés", Maladie:"Maladie", Sanssolde:"Sans solde", Autre:"Autre"};
+const ABS_LABELS = {CP:"Congés payés", Maladie:"Maladie", Sanssolde:"Sans solde", Autre:"Autre", Absent:"Absent"};
 let state = {employees:[], shifts:{}, absences:[], presets:[], pointages:{}, location:null, openShifts:[]};
 let me = null; // {role, nom, employeeId, restaurantName}
 
@@ -25,14 +25,12 @@ async function loadState(){
   state.location = data.location || null;
   state.openShifts = data.openShifts || [];
 }
-async function save(){
-  if(me.role !== "manager") return;
-  await api("PUT", "/api/state", {
-    employees: state.employees, shifts: state.shifts,
-    absences: state.absences, presets: state.presets, pointages: state.pointages,
-  });
+// Chaque action passe par une route dediee cote serveur (plus de sauvegarde globale :
+// le gerant ne peut plus ecraser les pointages / demandes faits entre-temps par les employes).
+async function mutate(method, url, body){
+  await api(method, url, body);
+  await loadState();
 }
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 const POSTE_COLORS = {Cuisine:"#e8590c", Salle:"#1971c2", Plonge:"#0ca678", Bar:"#9c36b5", Direction:"#343a40", Autre:"#adb5bd"};
 const posteColor = p => POSTE_COLORS[p] || POSTE_COLORS.Autre;
 const isManager = () => me && me.role === "manager";
@@ -108,7 +106,7 @@ function renderPlanning(){
   }
   for(const e of emps){
     html += "<tr><td class='emp-name' style='border-left:4px solid "+posteColor(e.poste)+"'><span class='dot' style='background:"+posteColor(e.poste)+"'></span>"+esc(e.nom)
-      + "<span class='poste'>"+esc(e.poste)+" · "+e.heuresContrat+"h/sem</span></td>";
+      + "<span class='poste'>"+esc(e.poste)+(e.heuresContrat != null ? " · "+e.heuresContrat+"h/sem" : "")+"</span></td>";
     for(let i=0;i<7;i++){
       const ds = iso(addDays(currentMonday,i));
       const abs = absenceOn(e.id, ds);
@@ -126,7 +124,7 @@ function renderPlanning(){
       html += "<td class='"+cls+"'"+click+">"+inner+"</td>";
     }
     const tot = weekMinutes(e.id, currentMonday);
-    const sup = Math.max(0, tot - e.heuresContrat*60);
+    const sup = e.heuresContrat != null ? Math.max(0, tot - e.heuresContrat*60) : 0;
     html += "<td class='total-col'>"+fmtH(tot)+(sup ? "<span class='sup'>+"+fmtH(sup)+" sup</span>" : "")+"</td></tr>";
   }
   document.getElementById("planningTable").innerHTML = html;
@@ -150,15 +148,10 @@ function renderPlanning(){
 }
 async function duplicatePrevWeek(){
   if(!confirm("Copier tous les horaires de la semaine précédente sur cette semaine ?\n(Les horaires déjà saisis cette semaine seront remplacés.)")) return;
-  for(const e of state.employees){
-    for(let i=0;i<7;i++){
-      const src = state.shifts[key(e.id, iso(addDays(currentMonday, i-7)))];
-      const dst = key(e.id, iso(addDays(currentMonday, i)));
-      if(src && src.length) state.shifts[dst] = JSON.parse(JSON.stringify(src));
-      else delete state.shifts[dst];
-    }
-  }
-  await save(); renderPlanning();
+  try{
+    await mutate("POST", "/api/shifts/duplicate-week", {monday: iso(currentMonday)});
+    renderPlanning();
+  }catch(err){ alert(err.message); }
 }
 
 /* ---------- Creneaux de derniere minute ---------- */
@@ -258,19 +251,25 @@ async function savePreset(){
   if(!out.length){ alert("Remplis d'abord les horaires ci-dessous, puis clique sur ⭐ pour les enregistrer 🙂"); return; }
   const nom = prompt("Donne un nom à cet horaire type (ex : Service complet, Midi seul, Soir seul) :");
   if(!nom || !nom.trim()) return;
-  state.presets.push({id:uid(), nom:nom.trim(), shifts:out});
-  await save(); renderPresets();
+  try{
+    await mutate("POST", "/api/presets", {nom:nom.trim(), shifts:out});
+    renderPresets();
+  }catch(err){ alert(err.message); }
 }
 async function applyPreset(id){
   const p = state.presets.find(x=>x.id===id);
   if(!p || !editing) return;
-  state.shifts[key(editing.empId, editing.dateStr)] = JSON.parse(JSON.stringify(p.shifts));
-  await save(); closeModal(); renderPlanning();
+  try{
+    await mutate("PUT", "/api/shifts", {empId:editing.empId, date:editing.dateStr, shifts:p.shifts});
+    closeModal(); renderPlanning();
+  }catch(err){ alert(err.message); }
 }
 async function delPreset(id){
   if(!confirm("Supprimer cet horaire type ?\n(Les plannings déjà remplis ne changent pas.)")) return;
-  state.presets = state.presets.filter(p=>p.id!==id);
-  await save(); renderPresets();
+  try{
+    await mutate("DELETE", "/api/presets/"+id);
+    renderPresets();
+  }catch(err){ alert(err.message); }
 }
 
 /* ---------- Copier / coller des horaires ---------- */
@@ -295,20 +294,24 @@ function copyShift(){
 async function pasteShift(){
   const clip = getClip();
   if(!clip || !editing) return;
-  state.shifts[key(editing.empId, editing.dateStr)] = JSON.parse(JSON.stringify(clip));
-  await save(); closeModal(); renderPlanning();
+  try{
+    await mutate("PUT", "/api/shifts", {empId:editing.empId, date:editing.dateStr, shifts:clip});
+    closeModal(); renderPlanning();
+  }catch(err){ alert(err.message); }
 }
 async function saveShift(){
   if(!editing) return;
-  const out = readShiftFields();
-  const k = key(editing.empId, editing.dateStr);
-  if(out.length) state.shifts[k] = out; else delete state.shifts[k];
-  await save(); closeModal(); renderPlanning();
+  try{
+    await mutate("PUT", "/api/shifts", {empId:editing.empId, date:editing.dateStr, shifts:readShiftFields()});
+    closeModal(); renderPlanning();
+  }catch(err){ alert(err.message); }
 }
 async function clearShift(){
   if(!editing) return;
-  delete state.shifts[key(editing.empId, editing.dateStr)];
-  await save(); closeModal(); renderPlanning();
+  try{
+    await mutate("PUT", "/api/shifts", {empId:editing.empId, date:editing.dateStr, shifts:[]});
+    closeModal(); renderPlanning();
+  }catch(err){ alert(err.message); }
 }
 function closeModal(){ editing = null; document.getElementById("overlay").classList.remove("open"); }
 
@@ -343,15 +346,17 @@ async function punch(empId){
   renderPointage(); renderPaie();
 }
 async function editPointage(empId, dateStr, i, champ, val){
-  const list = state.pointages[key(empId, dateStr)];
-  if(!list || !list[i]) return;
-  list[i][champ] = val || null;
-  await save(); renderPointage(); renderPaie();
+  try{
+    await mutate("PUT", "/api/pointages", {empId, date:dateStr, index:i, [champ]: val || null});
+    renderPointage(); renderPaie();
+  }catch(err){ alert(err.message); }
 }
 async function delPointage(empId, dateStr, i){
   if(!confirm("Supprimer ce pointage ?")) return;
-  state.pointages[key(empId, dateStr)].splice(i, 1);
-  await save(); renderPointage(); renderPaie();
+  try{
+    await mutate("DELETE", "/api/pointages", {empId, date:dateStr, index:i});
+    renderPointage(); renderPaie();
+  }catch(err){ alert(err.message); }
 }
 function renderPointage(){
   tickClock();
@@ -418,33 +423,38 @@ async function loadAccounts(){
 async function addEmployee(){
   const nom = document.getElementById("empNom").value.trim();
   if(!nom){ alert("Mets au moins un prénom 🙂"); return; }
-  state.employees.push({
-    id: uid(), nom,
-    poste: document.getElementById("empPoste").value,
-    heuresContrat: parseFloat(document.getElementById("empHeures").value) || 0,
-    tauxHoraire: parseFloat(document.getElementById("empTaux").value) || 0
-  });
-  document.getElementById("empNom").value = "";
-  document.getElementById("empTaux").value = "";
-  await save(); renderAll();
+  try{
+    await mutate("POST", "/api/employees", {
+      nom,
+      poste: document.getElementById("empPoste").value,
+      heuresContrat: parseFloat(document.getElementById("empHeures").value) || 0,
+      tauxHoraire: parseFloat(document.getElementById("empTaux").value) || 0,
+    });
+    document.getElementById("empNom").value = "";
+    document.getElementById("empTaux").value = "";
+    renderAll();
+  }catch(err){ alert(err.message); }
 }
 async function updateEmp(id, champ, val){
-  const e = state.employees.find(x=>x.id===id);
-  if(!e) return;
-  e[champ] = champ==="nom" || champ==="poste" ? val : (parseFloat(val) || 0);
-  await save(); renderPlanning(); renderPaie();
+  try{
+    await mutate("PUT", "/api/employees/"+id, {[champ]: val});
+    renderPlanning(); renderPaie();
+  }catch(err){ alert(err.message); }
 }
 async function removeEmployee(id){
   const e = state.employees.find(x=>x.id===id);
-  if(!confirm("Retirer "+e.nom+" de l'équipe ?\n(Ses anciens plannings restent enregistrés.)")) return;
-  state.employees = state.employees.filter(x=>x.id!==id);
-  await save(); renderAll();
+  if(!confirm("Retirer "+e.nom+" de l'équipe ?\n(Ses anciens plannings restent enregistrés, et son accès de connexion est révoqué.)")) return;
+  try{
+    await mutate("DELETE", "/api/employees/"+id);
+    await loadAccounts();
+    renderAll();
+  }catch(err){ alert(err.message); }
 }
 async function createAccess(empId){
   const e = state.employees.find(x=>x.id===empId); if(!e) return;
   const login = prompt("Identifiant de connexion pour "+e.nom+" (ex : prénom, sans espaces) :");
   if(!login || !login.trim()) return;
-  const password = prompt("Code / mot de passe pour "+e.nom+" :");
+  const password = prompt("Code / mot de passe pour "+e.nom+" (6 caractères minimum) :");
   if(!password || !password.trim()) return;
   try{
     await api("POST", "/api/users", {employeeId: empId, login: login.trim(), password: password.trim()});
@@ -493,12 +503,16 @@ async function addAbsence(){
   const du = document.getElementById("absDu").value, au = document.getElementById("absAu").value;
   if(!empId || !du || !au){ alert("Choisis l'employé et les deux dates."); return; }
   if(au < du){ alert("La date de fin est avant la date de début."); return; }
-  state.absences.push({id:uid(), empId, du, au, type:document.getElementById("absType").value, status:"approuve"});
-  await save(); renderAll();
+  try{
+    await mutate("POST", "/api/absences", {empId, du, au, type:document.getElementById("absType").value});
+    renderAll();
+  }catch(err){ alert(err.message); }
 }
 async function removeAbsence(id){
-  state.absences = state.absences.filter(a=>a.id!==id);
-  await save(); renderAll();
+  try{
+    await mutate("DELETE", "/api/absences/"+id);
+    renderAll();
+  }catch(err){ alert(err.message); }
 }
 async function requestAbsence(){
   const du = document.getElementById("reqDu").value, au = document.getElementById("reqAu").value;
@@ -576,9 +590,9 @@ function paieData(){
       if(jeudi.getMonth() !== m-1 || jeudi.getFullYear() !== y) continue;
       supMin += Math.max(0, weekMinutes(e.id, lun) - e.heuresContrat*60);
     }
-    // jours d'absence dans le mois, par type
+    // jours d'absence dans le mois, par type (seules les absences approuvees comptent)
     const abs = {CP:0, Maladie:0, Sanssolde:0, Autre:0};
-    for(const a of state.absences.filter(a=>a.empId===e.id)){
+    for(const a of state.absences.filter(a=>a.empId===e.id && (a.status||"approuve")==="approuve")){
       for(let d = fromISO(a.du); d <= fromISO(a.au); d = addDays(d,1))
         if(d >= first && d <= last) abs[a.type]++;
     }
