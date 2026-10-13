@@ -462,9 +462,55 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
   .carte h2{color:#000}
   .carte h2::before{background:#000}
 }
+
+/* ---------- Étiquettes imprimante (Brother QL) ---------- */
+#zone-impression-etiq{display:none}
+.lbl{box-sizing:border-box; overflow:hidden; background:#fff; color:#000; font-family:Arial,Helvetica,sans-serif; line-height:1.15; display:flex; flex-direction:column; break-after:page; page-break-after:always}
+.lbl:last-child{break-after:auto; page-break-after:auto}
+.lbl .l-entete{text-transform:uppercase; letter-spacing:.3px; border-bottom:.3mm solid #000}
+.lbl .l-nom{font-weight:900; text-transform:uppercase; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+.lbl .l-dlc{border:.7mm solid #000; text-align:center; font-weight:900}
+.lbl .l-dlc small{display:block; font-weight:700; text-transform:uppercase}
+.lbl .l-allerg{font-weight:900}
+.lbl .l-col{display:flex; flex-direction:column; min-width:0}
+.lbl > *,.lbl .l-col > *{flex-shrink:0}
+/* 62 mm continu */
+.lbl.f-c62{width:62mm; height:45mm; padding:2.5mm 3mm; gap:1mm}
+.f-c62 .l-entete{font-size:6pt; padding-bottom:.6mm}
+.f-c62 .l-nom{font-size:12pt; line-height:1.1}
+.f-c62 .l-ligne{font-size:8pt}
+.f-c62 .l-dlc{font-size:15pt; padding:.6mm}
+.f-c62 .l-dlc small{font-size:6.5pt}
+.f-c62 .l-allerg,.f-c62 .l-pied{font-size:7pt}
+/* 62 x 29 mm */
+.lbl.f-62x29{width:62mm; height:29mm; padding:1.5mm 2mm; gap:.6mm}
+.f-62x29 .l-entete,.f-62x29 .l-pied{display:none}
+.f-62x29 .l-nom{font-size:9.5pt; -webkit-line-clamp:1; display:block; white-space:nowrap; text-overflow:ellipsis}
+.f-62x29 .l-ligne{font-size:6.5pt}
+.f-62x29 .l-dlc{font-size:12pt; padding:.3mm}
+.f-62x29 .l-dlc small{font-size:5.5pt}
+.f-62x29 .l-allerg{font-size:6pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* 29 x 90 mm (imprimée à l'horizontale) */
+.lbl.f-29x90{width:90mm; height:29mm; padding:1.5mm 2.5mm; flex-direction:row; gap:2mm}
+.f-29x90 .l-col{flex:1; gap:.5mm}
+.f-29x90 .l-col.droite{flex:0 0 32mm; justify-content:center}
+.f-29x90 .l-entete,.f-29x90 .l-pied{display:none}
+.f-29x90 .l-nom{font-size:10pt}
+.f-29x90 .l-ligne,.f-29x90 .l-allerg{font-size:6.5pt}
+.f-29x90 .l-dlc{font-size:12pt; padding:.8mm .3mm}
+.f-29x90 .l-dlc small{font-size:5.5pt}
+.apercu-lbl{display:flex; flex-wrap:wrap; gap:10px}
+.apercu-lbl .lbl{border:1px dashed #9aa5a0; break-after:auto}
+@media print{
+  body.impr-etiq{background:#fff !important; margin:0 !important; padding:0 !important}
+  body.impr-etiq > *:not(#zone-impression-etiq){display:none !important}
+  body.impr-etiq #zone-impression-etiq{display:block !important}
+}
 </style>
 </head>
 <body>
+
+<div id="zone-impression-etiq"></div>
 
 <header>
   <h1>📋 Traçabilité HACCP — Restaurant Le Modulo</h1>
@@ -876,6 +922,29 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 
   <!-- ===================== ÉTIQUETTES DLC ===================== -->
   <section id="etiquettes" class="onglet">
+
+    <div class="carte">
+      <h2>🖨️ Imprimante d'étiquettes</h2>
+      <div class="champ" style="max-width:420px; margin-bottom:10px;">
+        <label>Format des étiquettes (mémorisé sur cet appareil)</label>
+        <select id="etiq-format">
+          <option value="c62">Brother — rouleau continu 62 mm (DK-22205)</option>
+          <option value="62x29">Brother — étiquettes 62 × 29 mm (DK-11209)</option>
+          <option value="29x90">Brother — étiquettes 29 × 90 mm (DK-11201)</option>
+          <option value="a4">Feuille A4 (imprimante classique)</option>
+        </select>
+      </div>
+      <details style="font-size:12px; color:var(--gris); line-height:1.6;">
+        <summary style="cursor:pointer; font-weight:700; color:var(--vert);">Comment imprimer depuis la tablette Android ?</summary>
+        <ol style="margin:8px 0 0 18px;">
+          <li>Sur la tablette, installer <strong>« Brother Print Service Plugin »</strong> depuis le Play Store, puis l'activer (Paramètres → Impression).</li>
+          <li>Tablette et imprimante sur le <strong>même Wi-Fi</strong> (ou Wi-Fi Direct de l'imprimante).</li>
+          <li>Dans l'appli, cliquer sur <strong>Imprimer</strong> → choisir l'imprimante <strong>QL-820NWB / QL-810W</strong>.</li>
+          <li>Dans « Taille du papier », choisir <strong>la même taille que le rouleau</strong> (ex. 62 mm), marges <strong>Aucune</strong>, échelle <strong>100 %</strong>.</li>
+          <li>Rouleau inconnu ? C'est écrit sur la boîte ou sur le côté du rouleau (DK-xxxxx).</li>
+        </ol>
+      </details>
+    </div>
 
     <div class="carte">
       <h2>🍳 Étiquette rapide — Préparation maison</h2>
@@ -2544,6 +2613,62 @@ function genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, alle
   `;
 }
 
+// ---- Impression sur imprimante d'étiquettes (Brother QL) ----
+const FORMATS_ETIQ = {
+  c62:     { page: '62mm 45mm' },
+  '62x29': { page: '62mm 29mm' },
+  '29x90': { page: '90mm 29mm' },
+  a4:      null
+};
+const CLE_PREF_FORMAT = 'pref_format_etiquettes';
+const selectFormat = document.getElementById('etiq-format');
+try { const f = localStorage.getItem(CLE_PREF_FORMAT); if (f && f in FORMATS_ETIQ) selectFormat.value = f; } catch (e) {}
+selectFormat.addEventListener('change', () => {
+  try { localStorage.setItem(CLE_PREF_FORMAT, selectFormat.value); } catch (e) {}
+  if (document.getElementById('etiq-prep-zone').style.display === 'block') document.getElementById('etiq-prep-apercu').click();
+});
+function formatEtiq() { return selectFormat.value; }
+
+// e = { entete, nom, lignes:[], dlc, allergenes, pied }
+function htmlEtiquette(e, format) {
+  const dlc = `<div class="l-dlc"><small>À consommer avant le</small>${formaterDate(e.dlc)}</div>`;
+  const lignes = e.lignes.map(l => `<div class="l-ligne">${l}</div>`).join('');
+  const allerg = e.allergenes ? `<div class="l-allerg">Allergènes : ${e.allergenes}</div>` : '';
+  if (format === '29x90') {
+    return `<div class="lbl f-29x90"><div class="l-col"><div class="l-nom">${e.nom}</div>${lignes}${allerg}</div><div class="l-col droite">${dlc}</div></div>`;
+  }
+  return `<div class="lbl f-${format}"><div class="l-entete">${e.entete}</div><div class="l-nom">${e.nom}</div>${lignes}${dlc}${allerg}<div class="l-pied">${e.pied || ''}</div></div>`;
+}
+
+let styleImpressionEtiq = null;
+function nettoyerImpressionEtiq() {
+  document.body.classList.remove('impr-etiq');
+  if (styleImpressionEtiq) { styleImpressionEtiq.remove(); styleImpressionEtiq = null; }
+}
+window.addEventListener('afterprint', nettoyerImpressionEtiq);
+function imprimerEtiquettesImprimante(etiquettes) {
+  const format = formatEtiq();
+  nettoyerImpressionEtiq();
+  document.getElementById('zone-impression-etiq').innerHTML = etiquettes.map(e => htmlEtiquette(e, format)).join('');
+  styleImpressionEtiq = document.createElement('style');
+  styleImpressionEtiq.textContent = `@page { size: ${FORMATS_ETIQ[format].page}; margin: 0; }`;
+  document.head.appendChild(styleImpressionEtiq);
+  document.body.classList.add('impr-etiq');
+  window.print();
+}
+
+function donneesEtiquettePrep() {
+  return {
+    entete: 'Le Modulo · Préparation maison',
+    nom: document.getElementById('etiq-prep-nom').value.trim(),
+    lignes: [`Fabriqué le ${formaterDate(document.getElementById('etiq-prep-date-prod').value)} à ${document.getElementById('etiq-prep-heure-prod').value || '—'}`,
+             document.getElementById('etiq-prep-lieu').value],
+    dlc: document.getElementById('etiq-prep-dlc').value,
+    allergenes: document.getElementById('etiq-prep-allergenes').value.trim(),
+    pied: (() => { const par = document.getElementById('etiq-prep-par').value.trim(); return par ? 'Réalisé par : ' + par : ''; })()
+  };
+}
+
 document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
   const nom = document.getElementById('etiq-prep-nom').value.trim();
   const dlc = document.getElementById('etiq-prep-dlc').value;
@@ -2554,6 +2679,13 @@ document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
   const par = document.getElementById('etiq-prep-par').value.trim();
   const allergenes = document.getElementById('etiq-prep-allergenes').value.trim();
   const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
+  if (formatEtiq() !== 'a4') {
+    document.getElementById('etiq-prep-preview').innerHTML = `<div class="apercu-lbl">${htmlEtiquette(donneesEtiquettePrep(), formatEtiq())}</div>` +
+      (qte > 1 ? `<div style="font-size:12px; color:var(--gris); margin-top:6px;">× ${qte} étiquettes</div>` : '');
+    document.getElementById('etiq-prep-zone').style.display = 'block';
+    document.getElementById('etiq-prep-zone').scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
   let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
   for (let i = 0; i < qte; i++) {
     html += genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, allergenes);
@@ -2565,6 +2697,12 @@ document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
 });
 
 document.getElementById('etiq-prep-imprimer-btn').addEventListener('click', () => {
+  if (formatEtiq() !== 'a4') {
+    const e = donneesEtiquettePrep();
+    const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
+    imprimerEtiquettesImprimante(Array(qte).fill(e));
+    return;
+  }
   // Masquer tout sauf la zone d'aperçu pour l'impression
   document.querySelectorAll('main > section, header, nav, footer').forEach(el => el.style.display = 'none');
   const zone = document.getElementById('etiq-prep-preview');
@@ -2605,6 +2743,19 @@ document.getElementById('etiq-tout-cocher').addEventListener('click', () => docu
 document.getElementById('etiq-tout-decocher').addEventListener('click', () => document.querySelectorAll('.etiq-case').forEach(c => c.checked = false));
 document.getElementById('etiq-imprimer').addEventListener('click', () => {
   const idsCoches = Array.from(document.querySelectorAll('.etiq-case:checked')).map(c => c.dataset.id);
+  if (formatEtiq() !== 'a4') {
+    const produits = lireDonnees(CLE_DLC).filter(p => idsCoches.includes(p.id)).sort((a,b) => new Date(a.dlc) - new Date(b.dlc));
+    if (!produits.length) { alert('Aucun produit sélectionné.'); return; }
+    imprimerEtiquettesImprimante(produits.map(p => ({
+      entete: 'Le Modulo · ' + (p.categorie || ''),
+      nom: p.nom,
+      lignes: [`Reçu / produit le ${formaterDate(p.reception)}`, p.lieu || ''],
+      dlc: p.dlc,
+      allergenes: '',
+      pied: ''
+    })));
+    return;
+  }
   document.querySelectorAll('.etiquette').forEach(carte => {
     const idImpression = carte.querySelector('.etiq-impression').dataset.id;
     carte.style.display = idsCoches.includes(idImpression) ? '' : 'none';
