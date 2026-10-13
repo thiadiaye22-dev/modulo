@@ -1,0 +1,2976 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traçabilité HACCP — Le Modulo</title>
+<style>
+  :root {
+    --vert: #1B5E20;
+    --vert-clair: #E8F5E9;
+    --rouge: #B71C1C;
+    --rouge-clair: #FFEBEE;
+    --or: #B8860B;
+    --or-clair: #FFF8E1;
+    --gris-fonce: #2C2C2C;
+    --gris: #6B6B6B;
+    --gris-clair: #F4F4F4;
+    --bordure: #DDDDDD;
+    --bleu: #0D47A1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; color: var(--gris-fonce);
+    background: #F0F0F0;
+  }
+
+  header {
+    background: var(--vert); color: white; padding: 18px 24px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  }
+  header h1 { font-size: 20px; letter-spacing: 1px; }
+  header .date { font-size: 13px; opacity: 0.85; }
+
+  nav {
+    background: white; display: flex; border-bottom: 2px solid var(--bordure);
+    position: sticky; top: 0; z-index: 100; flex-wrap: wrap;
+  }
+  nav button {
+    flex: 1; min-width: 140px; padding: 14px 10px; border: none; background: white;
+    font-size: 14px; font-weight: 600; color: var(--gris); cursor: pointer;
+    border-bottom: 3px solid transparent; transition: all 0.15s;
+  }
+  nav button:hover { background: var(--gris-clair); }
+  nav button.active { color: var(--vert); border-bottom-color: var(--vert); background: var(--vert-clair); }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .onglet { display: none; }
+  .onglet.active { display: block; animation: fadein 0.2s; }
+  @keyframes fadein { from {opacity:0;} to {opacity:1;} }
+
+  .carte {
+    background: white; border-radius: 10px; padding: 18px 20px; margin-bottom: 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .carte h2 { font-size: 16px; color: var(--vert); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .formulaire { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .champ { display: flex; flex-direction: column; gap: 4px; }
+  .champ label { font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.5px; }
+  .champ input, .champ select {
+    padding: 9px 10px; border: 1px solid var(--bordure); border-radius: 6px; font-size: 14px; font-family: inherit;
+  }
+  .champ input:focus, .champ select:focus { outline: 2px solid var(--vert); border-color: var(--vert); }
+
+  .btn {
+    padding: 10px 22px; border: none; border-radius: 6px; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px;
+  }
+  .btn-principal { background: var(--vert); color: white; }
+  .btn-principal:hover { background: #2E7D32; }
+  .btn-secondaire { background: var(--gris-clair); color: var(--gris-fonce); border: 1px solid var(--bordure); }
+  .btn-secondaire:hover { background: #E0E0E0; }
+  .btn-danger { background: var(--rouge-clair); color: var(--rouge); font-size: 12px; padding: 6px 12px; }
+  .btn-danger:hover { background: #FFCDD2; }
+  .btn-petit { font-size: 12px; padding: 6px 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--gris-clair); }
+  thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gris); font-weight: 700; border-bottom: 2px solid var(--bordure); }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--bordure); }
+  tbody tr:hover { background: #FAFAFA; }
+
+  .statut {
+    display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .statut.ok { background: var(--vert-clair); color: var(--vert); }
+  .statut.attention { background: var(--or-clair); color: var(--or); }
+  .statut.urgent { background: var(--rouge-clair); color: var(--rouge); }
+
+  .vide { text-align: center; padding: 30px; color: var(--gris); font-style: italic; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stat-carte {
+    background: white; border-radius: 10px; padding: 16px 18px; text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 4px solid var(--vert);
+  }
+  .stat-carte.alerte { border-top-color: var(--rouge); }
+  .stat-carte.attention { border-top-color: var(--or); }
+  .stat-carte .nombre { font-size: 30px; font-weight: 900; color: var(--gris-fonce); line-height: 1; }
+  .stat-carte .label { font-size: 11px; color: var(--gris); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px; }
+
+  .jours-grille { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 10px; }
+  .jour-colonne { background: var(--gris-clair); border-radius: 8px; padding: 10px; min-height: 140px; }
+  .jour-colonne h4 { font-size: 12px; text-transform: uppercase; color: var(--vert); margin-bottom: 8px; text-align: center; letter-spacing: 0.5px; }
+  .tache-item {
+    background: white; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; font-size: 11px;
+    border-left: 3px solid var(--vert); display: flex; justify-content: space-between; align-items: center; gap: 4px;
+  }
+  .tache-item.fait { opacity: 0.5; text-decoration: line-through; border-left-color: var(--gris); }
+  .tache-item input[type="checkbox"] { cursor: pointer; }
+  .tache-item .supprimer { cursor: pointer; color: var(--rouge); font-weight: 900; font-size: 13px; }
+
+  .actions-top { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+
+  /* Photos d'étiquettes */
+  .photo-zone {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .photo-bouton {
+    display: inline-block; padding: 9px 16px; border: 2px dashed var(--vert); border-radius: 6px;
+    background: var(--vert-clair); color: var(--vert); font-size: 12px; font-weight: 700; cursor: pointer; text-align: center;
+  }
+  .photo-bouton:hover { background: #D7EFD9; }
+  .photo-zone input[type="file"] { display: none; }
+  .miniature {
+    width: 46px; height: 46px; object-fit: cover; border-radius: 6px; border: 1px solid var(--bordure);
+    cursor: pointer; vertical-align: middle;
+  }
+  .miniature-vide { color: var(--gris); font-size: 11px; font-style: italic; }
+  .photo-modale {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 999;
+    align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  .photo-modale.ouverte { display: flex; }
+  .photo-modale img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+
+  /* Équipements froid */
+  .ef-carte {
+    border: 1px solid var(--bordure); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  }
+  .ef-carte .ef-icone {
+    font-size: 28px; margin-right: 6px;
+  }
+  .ef-carte .ef-infos h4 { font-size: 14px; font-weight: 800; margin-bottom: 3px; }
+  .ef-carte .ef-infos p { font-size: 12px; color: var(--gris); line-height: 1.6; }
+  .ef-carte .ef-plage {
+    display: inline-block; background: var(--vert-clair); color: var(--vert);
+    border: 1px solid var(--vert); border-radius: 20px; font-size: 11px; font-weight: 700;
+    padding: 3px 10px; margin-top: 4px;
+  }
+  .ef-carte .ef-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  /* Friteuses */
+  .friteuse-carte {
+    border: 1px solid var(--bordure); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  }
+  .friteuse-carte .infos h4 { font-size: 14px; color: var(--gris-fonce); margin-bottom: 4px; }
+  .friteuse-carte .infos p { font-size: 12px; color: var(--gris); }
+  .friteuse-carte .infos .valeur { font-weight: 700; color: var(--gris-fonce); }
+
+  /* Étiquettes DLC imprimables */
+  .etiquettes-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 10px; }
+  .etiquette {
+    border: 2px solid var(--gris-fonce); border-radius: 8px; padding: 12px 14px; background: white;
+  }
+  .etiquette .nom { font-size: 15px; font-weight: 900; text-transform: uppercase; margin-bottom: 4px; }
+  .etiquette .ligne { font-size: 11px; line-height: 1.6; }
+  .etiquette .ligne strong { font-weight: 700; }
+  .etiquette .dlc-zone { margin-top: 6px; padding: 6px 8px; background: var(--rouge-clair); border-radius: 6px; font-size: 13px; font-weight: 800; color: var(--rouge); text-align: center; }
+  .etiquette .allerg { margin-top: 6px; font-size: 10px; color: var(--gris); font-style: italic; }
+  .etiquette label { display:flex; align-items:center; gap:6px; font-size: 11px; margin-bottom: 8px; color: var(--gris); }
+
+  /* Étiquette préparation maison */
+  .etiq-prep {
+    border: 3px solid var(--gris-fonce); border-radius: 10px; padding: 14px 16px;
+    width: 260px; background: white; display: inline-block; margin: 6px;
+    font-family: Arial, sans-serif; vertical-align: top;
+  }
+  .etiq-prep .ep-restaurant { font-size: 9px; color: var(--gris); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; border-bottom: 1px solid var(--bordure); padding-bottom: 4px; }
+  .etiq-prep .ep-nom { font-size: 16px; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; line-height: 1.2; }
+  .etiq-prep .ep-ligne { font-size: 11px; line-height: 1.8; color: var(--gris-fonce); }
+  .etiq-prep .ep-ligne strong { font-weight: 700; }
+  .etiq-prep .ep-dlc {
+    margin-top: 10px; background: var(--gris-fonce); color: white;
+    border-radius: 6px; padding: 8px 10px; text-align: center;
+  }
+  .etiq-prep .ep-dlc .ep-dlc-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+  .etiq-prep .ep-dlc .ep-dlc-date { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
+  .etiq-prep .ep-allerg { margin-top: 8px; font-size: 10px; color: var(--rouge); font-weight: 700; line-height: 1.5; }
+  .etiq-prep .ep-par { margin-top: 6px; font-size: 10px; color: var(--gris); border-top: 1px solid var(--bordure); padding-top: 5px; }
+
+  /* Allergènes */
+  .allergene-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .allergene-case {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--bordure);
+    border-radius: 6px; font-size: 12px; cursor: pointer; background: var(--gris-clair);
+  }
+  .allergene-case input { cursor: pointer; }
+  .allergene-case.coche { background: var(--or-clair); border-color: var(--or); font-weight: 700; }
+  .badge-allergene {
+    display: inline-block; background: var(--or-clair); color: var(--or); border: 1px solid var(--or);
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; margin: 2px 3px 2px 0;
+  }
+  .pas-allergene { font-size: 11px; color: var(--gris); font-style: italic; }
+
+  /* Non-conformités */
+  .nc-carte {
+    border-left: 4px solid var(--rouge); border-radius: 0 8px 8px 0; background: var(--rouge-clair);
+    padding: 12px 16px; margin-bottom: 12px;
+  }
+  .nc-carte.resolue { border-left-color: var(--vert); background: var(--vert-clair); }
+  .nc-carte h4 { font-size: 13px; margin-bottom: 4px; }
+  .nc-carte p { font-size: 12px; line-height: 1.6; color: var(--gris-fonce); }
+  .nc-carte .meta { font-size: 11px; color: var(--gris); margin-top: 4px; }
+  .nc-carte .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  footer { text-align: center; padding: 20px; color: var(--gris); font-size: 11px; }
+
+  /* Modal de bienvenue / guide */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 200; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.ouverte { display: flex; }
+  .modal-box {
+    background: white; border-radius: 14px; max-width: 700px; width: 100%;
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  }
+  .modal-header {
+    background: var(--vert); color: white; padding: 20px 24px;
+    border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-header h2 { font-size: 17px; }
+  .modal-header .fermer { cursor: pointer; font-size: 22px; opacity: 0.8; }
+  .modal-body { padding: 22px 24px; }
+  .etape-guide {
+    display: flex; gap: 14px; margin-bottom: 16px; align-items: flex-start;
+  }
+  .etape-guide .num {
+    background: var(--vert); color: white; border-radius: 50%;
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px; flex-shrink: 0;
+  }
+  .etape-guide .texte h4 { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .etape-guide .texte p { font-size: 12px; color: var(--gris); line-height: 1.6; }
+
+  /* Vue "Aujourd'hui" */
+  .aujourd-hui-section { margin-bottom: 18px; }
+  .aujourd-hui-titre {
+    font-size: 13px; font-weight: 800; color: var(--vert); text-transform: uppercase;
+    letter-spacing: 1px; border-bottom: 2px solid var(--vert); padding-bottom: 5px; margin-bottom: 10px;
+  }
+  .tache-du-jour {
+    display: flex; justify-content: space-between; align-items: center; padding: 9px 12px;
+    border-radius: 6px; background: white; border: 1px solid var(--bordure); margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .tache-du-jour.fait { opacity: 0.5; }
+
+  @media print {
+    nav, .formulaire, .actions-top, .btn, .tache-item .supprimer, input[type="checkbox"], .etiquette label, .nc-carte .actions, .modal-overlay { display: none !important; }
+    header { background: white !important; color: black !important; border-bottom: 2px solid black; }
+    .carte { box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+<style id="lifting-v3">
+/* ================= LIFTING DESIGN v3 — surcharge visuelle ================= */
+:root{
+  --vert:#16653C; --vert-fonce:#0E4A2B; --vert-vif:#2E8B4E; --vert-clair:#E7F3EC;
+  --rouge:#B83227; --rouge-clair:#FBEBE9;
+  --or:#B07A12; --or-clair:#FBF1DA;
+  --gris-fonce:#1E2530; --gris:#697586; --gris-clair:#F2F5F3;
+  --bordure:#E3E8E5; --bleu:#1D5FA8;
+  --grad-vert:linear-gradient(135deg,#16653C 0%,#2E8B4E 100%);
+  --grad-header:linear-gradient(120deg,#0E4A2B 0%,#1C8049 70%,#2E9D58 100%);
+  --ombre-s:0 1px 2px rgba(16,40,28,.06), 0 2px 8px rgba(16,40,28,.06);
+  --ombre-m:0 4px 14px rgba(16,40,28,.08), 0 2px 6px rgba(16,40,28,.05);
+  --ombre-l:0 18px 50px rgba(16,40,28,.16);
+  --r-s:9px; --r-m:14px; --r-l:18px;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  background:linear-gradient(180deg,#EFF3F0 0%,#E7EEE9 100%);
+  color:var(--gris-fonce); line-height:1.6;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+*{scrollbar-width:thin; scrollbar-color:#C7D2CC transparent}
+::-webkit-scrollbar{width:10px; height:10px}
+::-webkit-scrollbar-thumb{background:#C7D2CC; border-radius:10px; border:2px solid transparent; background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#A9B8B0; background-clip:content-box}
+
+/* ---------- Header ---------- */
+header{
+  background:var(--grad-header); color:#fff; padding:20px 28px;
+  box-shadow:0 6px 22px rgba(14,74,43,.20); border-bottom:3px solid var(--or);
+  position:relative; overflow:hidden;
+}
+header::after{content:""; position:absolute; inset:0; background:
+  radial-gradient(640px 200px at 88% -40%, rgba(255,255,255,.18), transparent 70%); pointer-events:none}
+header h1{font-size:21px; font-weight:800; letter-spacing:.3px; display:flex; align-items:center; gap:10px}
+header .date{font-size:12.5px; opacity:.9; font-weight:500; background:rgba(255,255,255,.14);
+  padding:6px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.18)}
+
+/* ---------- Navigation (chips) ---------- */
+nav{
+  background:rgba(255,255,255,.92); backdrop-filter:saturate(1.4) blur(10px);
+  -webkit-backdrop-filter:saturate(1.4) blur(10px);
+  display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px;
+  border-bottom:1px solid var(--bordure); box-shadow:0 6px 18px rgba(16,40,28,.05);
+  position:sticky; top:0; z-index:100;
+}
+nav button{
+  flex:1 1 auto; min-width:126px; padding:10px 12px; border:1px solid transparent;
+  border-radius:11px; background:transparent; color:var(--gris); font-weight:600; font-size:13.5px;
+  cursor:pointer; transition:transform .15s ease, background .2s, color .2s, box-shadow .2s;
+}
+nav button:hover{background:var(--vert-clair); color:var(--vert)}
+nav button.active{
+  background:var(--grad-vert); color:#fff; border-color:transparent;
+  box-shadow:0 6px 16px rgba(22,101,60,.32); transform:translateY(-1px);
+}
+nav button:focus-visible{outline:2px solid var(--vert); outline-offset:2px}
+
+/* ---------- Layout ---------- */
+main{max-width:1140px; padding:26px 22px 10px}
+
+/* ---------- Cartes ---------- */
+.carte{
+  background:#fff; border:1px solid var(--bordure); border-radius:var(--r-m);
+  padding:22px 24px; margin-bottom:20px; box-shadow:var(--ombre-m);
+  transition:box-shadow .25s ease, transform .25s ease;
+}
+.carte:hover{box-shadow:var(--ombre-l)}
+.carte h2{
+  font-size:15px; color:var(--vert); letter-spacing:.6px; margin-bottom:16px;
+  position:relative; padding-left:14px; display:flex; align-items:center; gap:8px;
+}
+.carte h2::before{
+  content:""; position:absolute; left:0; top:50%; transform:translateY(-50%);
+  width:5px; height:1.05em; border-radius:4px; background:var(--grad-vert);
+}
+
+/* ---------- Formulaires ---------- */
+.champ label{color:var(--gris); font-size:11px; letter-spacing:.6px}
+.champ input,.champ select{
+  padding:11px 12px; border:1px solid var(--bordure); border-radius:var(--r-s);
+  font-size:14px; background:#fff; color:var(--gris-fonce);
+  transition:border-color .18s, box-shadow .18s, background .18s;
+}
+.champ input::placeholder{color:#AEB7B0}
+.champ input:hover,.champ select:hover{border-color:#C5D0C8}
+.champ input:focus,.champ select:focus{
+  outline:none; border-color:var(--vert); box-shadow:0 0 0 3px rgba(22,101,60,.15); background:#fff;
+}
+
+/* ---------- Boutons ---------- */
+.btn{
+  border-radius:var(--r-s); font-weight:700; letter-spacing:.2px; cursor:pointer;
+  transition:transform .16s ease, box-shadow .2s, background .2s, color .2s, border-color .2s;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+}
+.btn-principal{background:var(--grad-vert); color:#fff; border:none; box-shadow:0 4px 12px rgba(22,101,60,.26)}
+.btn-principal:hover{background:linear-gradient(135deg,#125234 0%,#27814A 100%); transform:translateY(-1px); box-shadow:0 8px 18px rgba(22,101,60,.3)}
+.btn-principal:active{transform:translateY(0)}
+.btn-secondaire{background:#fff; color:var(--gris-fonce); border:1px solid var(--bordure)}
+.btn-secondaire:hover{background:var(--vert-clair); border-color:var(--vert); color:var(--vert)}
+.btn-danger{background:var(--rouge-clair); color:var(--rouge); border:1px solid #F1C9C4}
+.btn-danger:hover{background:#F6D7D2}
+.btn:focus-visible{outline:2px solid var(--vert); outline-offset:2px}
+
+/* ---------- Tableaux ---------- */
+table{font-size:13px}
+thead tr{background:transparent}
+thead th{
+  background:var(--vert-clair); color:var(--vert); border-bottom:1px solid #CDE3D5;
+  font-size:10.5px; letter-spacing:.7px; padding:12px;
+}
+thead th:first-child{border-top-left-radius:10px; border-bottom-left-radius:10px}
+thead th:last-child{border-top-right-radius:10px; border-bottom-right-radius:10px}
+tbody td{padding:12px; border-bottom:1px solid var(--bordure)}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:var(--vert-clair)}
+tbody tr:last-child td{border-bottom:none}
+
+/* ---------- Statuts ---------- */
+.statut{padding:4px 11px; border-radius:999px; font-size:10.5px; letter-spacing:.5px; border:1px solid transparent}
+.statut.ok{background:var(--vert-clair); color:var(--vert); border-color:#C6E4D1}
+.statut.attention{background:var(--or-clair); color:var(--or); border-color:#EAD8A8}
+.statut.urgent{background:var(--rouge-clair); color:var(--rouge); border-color:#F1C9C4}
+
+/* ---------- Cartes statistiques ---------- */
+.stat-carte{
+  background:#fff; border:1px solid var(--bordure); border-top:none; border-left:5px solid var(--vert);
+  border-radius:var(--r-m); padding:18px 20px; text-align:left; box-shadow:var(--ombre-s);
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.stat-carte:hover{transform:translateY(-3px); box-shadow:var(--ombre-m)}
+.stat-carte.alerte{border-left-color:var(--rouge)}
+.stat-carte.attention{border-left-color:var(--or)}
+.stat-carte .nombre{font-size:34px; font-weight:800; color:var(--vert); letter-spacing:-.5px}
+.stat-carte.alerte .nombre{color:var(--rouge)}
+.stat-carte.attention .nombre{color:var(--or)}
+.stat-carte .label{font-size:11px; color:var(--gris); letter-spacing:.5px; margin-top:6px}
+
+/* ---------- Planning nettoyage ---------- */
+.jour-colonne{background:#F6F9F7; border:1px solid var(--bordure); border-radius:var(--r-s); padding:11px}
+.jour-colonne h4{color:var(--vert); letter-spacing:.6px}
+.tache-item{
+  background:#fff; border:1px solid var(--bordure); border-left:3px solid var(--vert);
+  border-radius:8px; box-shadow:0 1px 2px rgba(16,40,28,.05); transition:box-shadow .15s
+}
+.tache-item:hover{box-shadow:var(--ombre-s)}
+
+/* ---------- Aujourd'hui ---------- */
+.aujourd-hui-titre{color:var(--vert); border-bottom:2px solid var(--vert-clair); letter-spacing:.8px}
+.tache-du-jour{
+  background:#fff; border:1px solid var(--bordure); border-radius:var(--r-s); transition:background .15s, box-shadow .15s
+}
+.tache-du-jour:hover{background:var(--vert-clair); box-shadow:var(--ombre-s)}
+
+/* ---------- Photos ---------- */
+.photo-bouton{border:2px dashed var(--vert); background:var(--vert-clair); color:var(--vert); border-radius:var(--r-s); transition:background .18s}
+.photo-bouton:hover{background:#D6ECDD}
+.miniature{border-radius:8px}
+
+/* ---------- Équipements froid / friteuses ---------- */
+.ef-carte,.friteuse-carte{
+  border:1px solid var(--bordure); border-radius:var(--r-m); box-shadow:var(--ombre-s);
+  transition:transform .18s ease, box-shadow .18s ease; background:#fff;
+}
+.ef-carte:hover,.friteuse-carte:hover{transform:translateY(-2px); box-shadow:var(--ombre-m)}
+.ef-carte .ef-plage{background:var(--vert-clair); color:var(--vert); border-color:#C6E4D1; border-radius:999px}
+
+/* ---------- Allergènes ---------- */
+.allergene-case{border:1px solid var(--bordure); border-radius:var(--r-s); background:#F6F9F7; transition:all .15s}
+.allergene-case:hover{border-color:var(--vert); background:var(--vert-clair)}
+.allergene-case.coche{background:var(--or-clair); border-color:var(--or)}
+.badge-allergene{background:var(--or-clair); color:var(--or); border-color:#EAD8A8; border-radius:999px}
+
+/* ---------- Non-conformités ---------- */
+.nc-carte{border-radius:0 var(--r-m) var(--r-m) 0; box-shadow:var(--ombre-s)}
+
+/* ---------- Modales ---------- */
+.modal-box{border-radius:var(--r-l); box-shadow:var(--ombre-l)}
+.modal-header{background:var(--grad-header); border-radius:var(--r-l) var(--r-l) 0 0}
+.etape-guide .num{background:var(--grad-vert); box-shadow:0 3px 8px rgba(22,101,60,.28)}
+.photo-modale img{border-radius:var(--r-m)}
+
+/* ---------- Footer ---------- */
+footer{color:var(--gris); font-size:11.5px; padding:24px}
+
+/* ---------- Impression : neutralise dégradés/ombres ---------- */
+@media print{
+  body{background:#fff}
+  header{background:#fff !important; color:#000 !important; border-bottom:2px solid #000; box-shadow:none}
+  header::after{display:none}
+  .carte,.stat-carte,.ef-carte,.friteuse-carte{box-shadow:none; border:1px solid #ccc}
+  .carte h2{color:#000}
+  .carte h2::before{background:#000}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Traçabilité HACCP — Restaurant Le Modulo</h1>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;"><div class="date" id="jauge-memoire" title="Mémoire du navigateur utilisée par l'appli">Mémoire : —</div><div class="date" id="date-actuelle"></div></div>
+</header>
+
+<nav>
+  <button class="onglet-btn active" data-onglet="aujourd-hui">✅ Aujourd'hui</button>
+  <button class="onglet-btn" data-onglet="tableau-bord">📊 Tableau de bord</button>
+  <button class="onglet-btn" data-onglet="dlc">🏷️ DLC & Stocks</button>
+  <button class="onglet-btn" data-onglet="equipements-froid">🧊 Équipements Froid</button>
+  <button class="onglet-btn" data-onglet="temperatures">🌡️ Relevés Température</button>
+  <button class="onglet-btn" data-onglet="nettoyage">🧽 Plan de Nettoyage</button>
+  <button class="onglet-btn" data-onglet="friteuses">🍟 Friteuses</button>
+  <button class="onglet-btn" data-onglet="refroidissement">❄️ Refroidissement</button>
+  <button class="onglet-btn" data-onglet="etiquettes">🖨️ Étiquettes DLC</button>
+  <button class="onglet-btn" data-onglet="nonconformites">🚨 Non-conformités</button>
+  <button class="onglet-btn" data-onglet="allergenes">🌾 Allergènes</button>
+  <button class="onglet-btn" data-onglet="reception">🚚 Réception</button>
+</nav>
+
+<main>
+
+  <!-- ===================== AUJOURD'HUI ===================== -->
+  <section id="aujourd-hui" class="onglet active">
+    <div class="carte">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+        <div>
+          <h2 style="margin-bottom:2px;">☀️ Bonjour — que faire aujourd'hui ?</h2>
+          <p style="font-size:12px; color:var(--gris);">Voici votre liste de contrôle pour la journée, générée automatiquement.</p>
+        </div>
+        <button class="btn btn-secondaire btn-petit" id="btn-guide">📖 Guide de démarrage</button>
+      </div>
+      <div id="aujourdhui-contenu"></div>
+    </div>
+  </section>
+
+  <!-- ===================== TABLEAU DE BORD ===================== -->
+  <section id="tableau-bord" class="onglet" >
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <div class="carte">
+      <h2>⚠️ Alertes du jour</h2>
+      <div id="alertes-liste"></div>
+    </div>
+
+    <div class="carte">
+      <h2>💾 Mémoire de l'appli</h2>
+      <p id="memoire-detail" style="font-size:13px; margin-bottom:12px;"></p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-secondaire btn-petit" id="btn-alleger">🗜 Alléger toutes les photos</button>
+        <button class="btn btn-danger" id="btn-suppr-photos-perimes">Supprimer les photos des produits périmés</button>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>🗂 Sauvegarde complète</h2>
+      <p style="font-size:13px; margin-bottom:12px;">Toutes les données (tous les onglets, photos comprises) dans un seul fichier. À faire régulièrement, et pour passer d'un appareil à un autre.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-principal btn-petit" id="btn-sauvegarde-complete">⬇ Tout sauvegarder</button>
+        <button class="btn btn-secondaire btn-petit" id="btn-restauration-complete">⬆ Tout restaurer</button>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>À propos de cet outil</h2>
+      <p style="line-height:1.7; color:var(--gris-fonce); font-size:13px;">
+        Cet outil enregistre vos données <strong>directement dans ce navigateur</strong> (aucune connexion internet nécessaire après le premier chargement).
+        Vos informations restent sur cet ordinateur. Pensez à faire une <strong>sauvegarde régulière</strong> avec le bouton "Exporter les données" présent dans chaque onglet — cela crée un fichier que vous pouvez garder en lieu sûr ou imprimer pour vos contrôles.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== DLC & STOCKS ===================== -->
+  <section id="dlc" class="onglet">
+    <div class="carte">
+      <h2>Ajouter un produit</h2>
+      <div class="champ" style="margin-bottom:12px;">
+        <label>⚡ Saisie rapide — choisir depuis la mercuriale 2026</label>
+        <select id="dlc-mercuriale" style="padding:9px 10px; border:2px solid var(--vert); border-radius:6px; font-size:13px; font-family:inherit; background:var(--vert-clair); color:var(--gris-fonce);">
+          <option value="">— Sélectionner un produit de votre mercuriale —</option>
+        </select>
+        <p style="font-size:11px; color:var(--gris); margin-top:4px;">Sélectionnez un produit pour pré-remplir le formulaire, puis ajustez la DLC selon votre livraison.</p>
+      </div>
+      <div class="formulaire">
+        <div class="champ"><label>Nom du produit</label><input type="text" id="dlc-nom" placeholder="Ex: Filet de bœuf"></div>
+        <div class="champ"><label>Catégorie</label>
+          <select id="dlc-categorie">
+            <option>Viande</option><option>Poisson</option><option>Légume</option>
+            <option>Produit laitier</option><option>Charcuterie</option><option>Sec / Épicerie</option><option>Préparation maison</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="champ"><label>Date de réception / production</label><input type="date" id="dlc-reception"></div>
+        <div class="champ"><label>DLC (date limite de consommation)</label><input type="date" id="dlc-date"></div>
+        <div class="champ"><label>Lieu de stockage</label>
+          <select id="dlc-lieu">
+            <option>Chambre froide positive</option><option>Chambre froide négative</option>
+            <option>Réfrigérateur de service</option><option>Congélateur</option><option>Sec / Réserve</option>
+          </select>
+        </div>
+        <div class="champ"><label>Quantité en stock</label><input type="number" id="dlc-quantite" min="0" step="1" value="1"></div>
+      </div>
+      <div class="champ" style="margin-bottom:6px;">
+        <label>Photo de l'étiquette (facultatif)</label>
+        <div class="photo-zone">
+          <label class="photo-bouton" for="dlc-photo">📷 Prendre / choisir une photo</label>
+          <input type="file" id="dlc-photo" accept="image/*" capture="environment">
+          <img id="dlc-photo-apercu" class="miniature" style="display:none;" alt="Aperçu de l'étiquette">
+          <span id="dlc-photo-statut" class="miniature-vide">Aucune photo sélectionnée</span>
+        </div>
+      </div>
+      <button class="btn btn-principal" id="dlc-ajouter">+ Ajouter le produit</button>
+    </div>
+
+    <div class="carte">
+      <h2>📒 Ma mercuriale — ajouter un produit à la saisie rapide</h2>
+      <p style="font-size:12px; color:var(--gris); margin-bottom:14px; line-height:1.6;">
+        Ajoutez ici vos produits habituels : ils apparaîtront en tête du menu <strong>⚡ Saisie rapide</strong> ci-dessus (groupe « ⭐ Mes produits »), prêts à réutiliser à chaque livraison.
+      </p>
+      <div class="formulaire">
+        <div class="champ"><label>Nom du produit</label><input type="text" id="merc-nom" placeholder="Ex: Filet de canard IGP 2kg"></div>
+        <div class="champ"><label>Catégorie</label>
+          <select id="merc-categorie">
+            <option>Viande</option><option>Poisson</option><option>Légume</option>
+            <option>Produit laitier</option><option>Charcuterie</option><option>Sec / Épicerie</option><option>Préparation maison</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="champ"><label>Lieu de stockage</label>
+          <select id="merc-lieu">
+            <option>Chambre froide positive</option><option>Chambre froide négative</option>
+            <option>Réfrigérateur de service</option><option>Congélateur</option><option>Sec / Réserve</option>
+          </select>
+        </div>
+        <div class="champ"><label>Conservation typique (jours)</label><input type="number" id="merc-dlcjours" min="1" step="1" placeholder="Ex: 5"></div>
+      </div>
+      <button class="btn btn-principal" id="merc-ajouter">+ Ajouter à ma mercuriale</button>
+      <div id="merc-liste" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="dlc-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="dlc-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="dlc-imprimer">🖨 Imprimer la liste</button>
+      </div>
+      <h2>Suivi des produits</h2>
+      <table>
+        <thead>
+          <tr><th>Étiquette</th><th>Produit</th><th>Catégorie</th><th>Réception</th><th>DLC</th><th>Lieu</th><th>Quantité</th><th>Statut</th><th></th></tr>
+        </thead>
+        <tbody id="dlc-tableau"></tbody>
+      </table>
+      <div class="vide" id="dlc-vide" style="display:none;">Aucun produit enregistré pour le moment. Ajoutez votre premier produit ci-dessus.</div>
+    </div>
+  </section>
+
+  <!-- ===================== EQUIPEMENTS FROID ===================== -->
+  <section id="equipements-froid" class="onglet">
+    <div class="carte">
+      <h2>Ajouter un équipement de froid</h2>
+      <div class="formulaire">
+        <div class="champ">
+          <label>Nom / repère</label>
+          <input type="text" id="ef-nom" placeholder="Ex: Chambre froide viandes">
+        </div>
+        <div class="champ">
+          <label>Type</label>
+          <select id="ef-type">
+            <option>Chambre froide positive</option>
+            <option>Chambre froide négative</option>
+            <option>Réfrigérateur de service</option>
+            <option>Congélateur</option>
+            <option>Vitrine réfrigérée</option>
+            <option>Liaison chaude / Maintien</option>
+          </select>
+        </div>
+        <div class="champ">
+          <label>Température cible min (°C)</label>
+          <input type="number" id="ef-temp-min" step="0.5" placeholder="Ex: 0">
+        </div>
+        <div class="champ">
+          <label>Température cible max (°C)</label>
+          <input type="number" id="ef-temp-max" step="0.5" placeholder="Ex: 4">
+        </div>
+        <div class="champ">
+          <label>Emplacement</label>
+          <input type="text" id="ef-emplacement" placeholder="Ex: Cuisine froide, couloir...">
+        </div>
+      </div>
+      <button class="btn btn-principal" id="ef-ajouter">+ Ajouter l'équipement</button>
+    </div>
+
+    <div class="carte">
+      <h2>Seuils HACCP recommandés par défaut</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Plage normale</th><th>Seuil d'alerte</th></tr></thead>
+        <tbody>
+          <tr><td>Chambre froide positive</td><td>0°C à +4°C</td><td>Au-delà de +4°C</td></tr>
+          <tr><td>Chambre froide négative</td><td>−18°C ou moins</td><td>Au-delà de −15°C</td></tr>
+          <tr><td>Réfrigérateur de service</td><td>0°C à +4°C</td><td>Au-delà de +4°C</td></tr>
+          <tr><td>Congélateur</td><td>−18°C ou moins</td><td>Au-delà de −15°C</td></tr>
+          <tr><td>Vitrine réfrigérée</td><td>0°C à +4°C</td><td>Au-delà de +4°C</td></tr>
+          <tr><td>Liaison chaude / Maintien</td><td>+63°C ou plus</td><td>En dessous de +63°C</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="carte">
+      <h2>Mes équipements de froid</h2>
+      <div id="ef-liste"></div>
+      <div class="vide" id="ef-vide" style="display:none;">Aucun équipement enregistré. Ajoutez votre première chambre froide ou frigo ci-dessus.</div>
+    </div>
+  </section>
+
+  <!-- ===================== RELEVES TEMPERATURE ===================== -->
+  <section id="temperatures" class="onglet">
+    <div class="carte">
+      <h2>Nouveau relevé</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Équipement</label>
+          <select id="temp-equipement">
+            <option value="">— Sélectionner un équipement —</option>
+          </select>
+          <p style="font-size:11px; color:var(--gris); margin-top:3px;">
+            Gérez la liste dans l'onglet <strong>🧊 Équipements Froid</strong>
+          </p>
+        </div>
+        <div class="champ"><label>Température relevée (°C)</label><input type="number" id="temp-valeur" step="0.1" placeholder="Ex: 3.2"></div>
+        <div class="champ"><label>Date</label><input type="date" id="temp-date"></div>
+        <div class="champ"><label>Heure</label><input type="time" id="temp-heure"></div>
+        <div class="champ"><label>Relevé par</label><input type="text" id="temp-personne" placeholder="Initiales / nom"></div>
+      </div>
+      <button class="btn btn-principal" id="temp-ajouter">+ Enregistrer le relevé</button>
+    </div>
+
+    <div class="carte">
+      <h2>Seuils de référence (normes HACCP)</h2>
+      <table>
+        <thead><tr><th>Équipement</th><th>Plage normale</th><th>Seuil d'alerte</th></tr></thead>
+        <tbody>
+          <tr><td>Chambre / réfrigérateur positif</td><td>0°C à +4°C</td><td>au-delà de +4°C</td></tr>
+          <tr><td>Chambre / congélateur négatif</td><td>-18°C ou moins</td><td>au-delà de -15°C</td></tr>
+          <tr><td>Vitrine réfrigérée</td><td>0°C à +4°C</td><td>au-delà de +4°C</td></tr>
+          <tr><td>Liaison chaude / maintien</td><td>+63°C ou plus</td><td>en dessous de +63°C</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="temp-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="temp-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="temp-imprimer">🖨 Imprimer le registre</button>
+      </div>
+      <h2>Historique des relevés</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Heure</th><th>Équipement</th><th>Température</th><th>Relevé par</th><th>Statut</th><th></th></tr></thead>
+        <tbody id="temp-tableau"></tbody>
+      </table>
+      <div class="vide" id="temp-vide" style="display:none;">Aucun relevé enregistré. Effectuez votre premier relevé ci-dessus.</div>
+    </div>
+  </section>
+
+  <!-- ===================== PLAN DE NETTOYAGE ===================== -->
+  <section id="nettoyage" class="onglet">
+    <div class="carte">
+      <h2>Ajouter une tâche de nettoyage</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Tâche</label><input type="text" id="net-tache" placeholder="Ex: Nettoyage Rational"></div>
+        <div class="champ"><label>Zone / Équipement</label>
+          <select id="net-zone"></select>
+          <button type="button" class="btn btn-secondaire btn-petit" id="net-zone-ajouter" style="margin-top:6px; align-self:flex-start;">➕ Nouvelle zone / point à nettoyer</button>
+          <div id="net-zones-perso" style="margin-top:6px;"></div>
+        </div>
+        <div class="champ"><label>Jour</label>
+          <select id="net-jour">
+            <option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option>
+            <option>Vendredi</option><option>Samedi</option><option>Dimanche</option>
+          </select>
+        </div>
+        <div class="champ"><label>Fréquence</label>
+          <select id="net-frequence">
+            <option>Quotidien</option><option>Hebdomadaire</option><option>Mensuel</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-principal" id="net-ajouter">+ Ajouter au planning</button>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="net-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="net-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="net-reinit">↺ Réinitialiser les coches (nouvelle semaine)</button>
+        <button class="btn btn-secondaire btn-petit" id="net-imprimer">🖨 Imprimer le planning</button>
+      </div>
+      <h2>Planning hebdomadaire</h2>
+      <div class="jours-grille" id="net-grille"></div>
+      <div class="vide" id="net-vide" style="display:none;">Aucune tâche planifiée. Ajoutez votre première tâche ci-dessus.</div>
+    </div>
+  </section>
+
+  <!-- ===================== FRITEUSES ===================== -->
+  <section id="friteuses" class="onglet">
+    <div class="carte">
+      <h2>Ajouter / déclarer une friteuse</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Nom / repère de la friteuse</label><input type="text" id="frit-nom" placeholder="Ex: Friteuse 1 — passe rapide"></div>
+        <div class="champ"><label>Type d'huile</label>
+          <select id="frit-huile">
+            <option>Huile de tournesol</option><option>Huile de colza</option>
+            <option>Huile d'arachide</option><option>Graisse végétale spéciale friture</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="champ"><label>Date de mise en place de l'huile</label><input type="date" id="frit-date-huile"></div>
+      </div>
+      <button class="btn btn-principal" id="frit-ajouter">+ Ajouter la friteuse</button>
+    </div>
+
+    <div class="carte">
+      <h2>Repères de contrôle de l'huile (normes pro)</h2>
+      <table>
+        <thead><tr><th>Indicateur</th><th>Seuil d'alerte</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Taux de composés polaires (TPM)</td><td>au-delà de 24-25%</td><td>Vidanger immédiatement (mesurable au testeur d'huile)</td></tr>
+          <tr><td>Couleur de l'huile</td><td>brune / opaque, mousse à chaud</td><td>Signe de dégradation — à changer</td></tr>
+          <tr><td>Odeur</td><td>odeur forte, rance ou de brûlé</td><td>Ne pas utiliser, vidanger</td></tr>
+          <tr><td>Filtration</td><td>résidus visibles au fond de cuve</td><td>Filtrer chaque jour ou chaque service</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="carte">
+      <h2>Enregistrer un contrôle / une vidange</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Friteuse concernée</label><select id="frit-cible"></select></div>
+        <div class="champ"><label>Type d'action</label>
+          <select id="frit-action">
+            <option value="controle">Contrôle visuel / TPM</option>
+            <option value="filtration">Filtration de l'huile</option>
+            <option value="vidange">Vidange complète (changement d'huile)</option>
+          </select>
+        </div>
+        <div class="champ"><label>Date</label><input type="date" id="frit-date-action"></div>
+        <div class="champ"><label>Résultat / valeur TPM (%)</label><input type="text" id="frit-resultat" placeholder="Ex: 18% — huile correcte"></div>
+        <div class="champ"><label>Contrôlé par</label><input type="text" id="frit-personne" placeholder="Initiales / nom"></div>
+      </div>
+      <button class="btn btn-principal" id="frit-enregistrer">+ Enregistrer</button>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="frit-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="frit-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="frit-imprimer">🖨 Imprimer le registre</button>
+      </div>
+      <h2>Friteuses suivies</h2>
+      <div id="frit-liste"></div>
+      <div class="vide" id="frit-vide" style="display:none;">Aucune friteuse enregistrée. Ajoutez votre première friteuse ci-dessus.</div>
+    </div>
+
+    <div class="carte">
+      <h2>Historique des contrôles & vidanges</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Friteuse</th><th>Action</th><th>Résultat</th><th>Par</th><th></th></tr></thead>
+        <tbody id="frit-historique"></tbody>
+      </table>
+      <div class="vide" id="frit-hist-vide" style="display:none;">Aucun contrôle enregistré pour le moment.</div>
+    </div>
+  </section>
+
+  <!-- ===================== REFROIDISSEMENT ===================== -->
+  <section id="refroidissement" class="onglet">
+    <div class="carte">
+      <h2>La règle HACCP du refroidissement rapide</h2>
+      <div class="note-importante" style="background:#FFF8E1; border:1px solid var(--or); border-left:4px solid var(--or); padding:12px 16px; border-radius:0 6px 6px 0; font-size:12px; line-height:1.7;">
+        Un plat cuisiné doit passer de <strong>+63°C à +10°C en moins de 2 heures</strong> pour éviter le développement bactérien. Au-delà, le produit est considéré à risque et ne doit pas être conservé.
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>Nouveau cycle de refroidissement</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Produit / préparation</label><input type="text" id="refroid-produit" placeholder="Ex: Blanquette de veau"></div>
+        <div class="champ"><label>Heure de début (sortie cuisson)</label><input type="time" id="refroid-debut-heure"></div>
+        <div class="champ"><label>Température de départ (°C)</label><input type="number" id="refroid-debut-temp" step="0.1" placeholder="Ex: 80"></div>
+        <div class="champ"><label>Heure de fin (en cellule)</label><input type="time" id="refroid-fin-heure"></div>
+        <div class="champ"><label>Température finale (°C)</label><input type="number" id="refroid-fin-temp" step="0.1" placeholder="Ex: 9"></div>
+        <div class="champ"><label>Date</label><input type="date" id="refroid-date"></div>
+        <div class="champ"><label>Contrôlé par</label><input type="text" id="refroid-personne" placeholder="Initiales / nom"></div>
+      </div>
+      <button class="btn btn-principal" id="refroid-ajouter">+ Enregistrer le cycle</button>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="refroid-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="refroid-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="refroid-imprimer">🖨 Imprimer le registre</button>
+      </div>
+      <h2>Historique des cycles de refroidissement</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Produit</th><th>Départ</th><th>Arrivée</th><th>Durée</th><th>Conformité</th><th>Par</th><th></th></tr></thead>
+        <tbody id="refroid-tableau"></tbody>
+      </table>
+      <div class="vide" id="refroid-vide" style="display:none;">Aucun cycle enregistré pour le moment.</div>
+    </div>
+  </section>
+
+  <!-- ===================== ÉTIQUETTES DLC ===================== -->
+  <section id="etiquettes" class="onglet">
+
+    <div class="carte">
+      <h2>🍳 Étiquette rapide — Préparation maison</h2>
+      <p style="font-size:12px; color:var(--gris); margin-bottom:14px; line-height:1.6;">
+        Vous venez de réaliser une préparation ? Remplissez les champs ci-dessous et imprimez l'étiquette à coller directement sur le contenant.
+      </p>
+      <div class="formulaire">
+        <div class="champ">
+          <label>Nom de la préparation</label>
+          <input type="text" id="etiq-prep-nom" placeholder="Ex: Fond de veau lié, Crème brûlée...">
+        </div>
+        <div class="champ">
+          <label>Date de production</label>
+          <input type="date" id="etiq-prep-date-prod">
+        </div>
+        <div class="champ">
+          <label>Heure de production</label>
+          <input type="time" id="etiq-prep-heure-prod">
+        </div>
+        <div class="champ">
+          <label>Date limite de consommation</label>
+          <input type="date" id="etiq-prep-dlc">
+        </div>
+        <div class="champ">
+          <label>Lieu de stockage</label>
+          <select id="etiq-prep-lieu">
+            <option>Chambre froide positive</option>
+            <option>Chambre froide négative</option>
+            <option>Réfrigérateur de service</option>
+            <option>Congélateur</option>
+            <option>Sec / Réserve</option>
+          </select>
+        </div>
+        <div class="champ">
+          <label>Réalisé par</label>
+          <input type="text" id="etiq-prep-par" placeholder="Initiales / nom du cuisinier">
+        </div>
+      </div>
+      <div class="champ" style="margin-bottom:14px;">
+        <label>Allergènes (facultatif)</label>
+        <input type="text" id="etiq-prep-allergenes" placeholder="Ex: Lait, Gluten, Œufs...">
+      </div>
+      <div class="champ" style="margin-bottom:14px;">
+        <label>Nombre d'étiquettes à imprimer</label>
+        <select id="etiq-prep-quantite" style="max-width:160px; padding:9px 10px; border:1px solid var(--bordure); border-radius:6px; font-size:14px;">
+          <option value="1">1 étiquette</option>
+          <option value="2">2 étiquettes</option>
+          <option value="3">3 étiquettes</option>
+          <option value="4">4 étiquettes</option>
+          <option value="6">6 étiquettes</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;">
+        <button class="btn btn-principal" id="etiq-prep-apercu">👁 Aperçu &amp; Imprimer</button>
+        <button class="btn btn-secondaire" id="etiq-prep-sauver">💾 Sauvegarder dans DLC &amp; Stocks</button>
+      </div>
+
+      <!-- Zone d'aperçu + impression -->
+      <div id="etiq-prep-zone" style="display:none;">
+        <div style="font-size:12px; color:var(--gris); margin-bottom:10px;">Aperçu de l'étiquette — cliquez sur <strong>Imprimer</strong> pour lancer l'impression :</div>
+        <div id="etiq-prep-preview"></div>
+        <div style="margin-top:12px; display:flex; gap:10px;">
+          <button class="btn btn-principal" id="etiq-prep-imprimer-btn">🖨 Imprimer</button>
+          <button class="btn btn-secondaire btn-petit" id="etiq-prep-fermer">✕ Fermer l'aperçu</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>📦 Générer des étiquettes pour vos produits en stock</h2>
+      <p style="font-size:12px; color:var(--gris); margin-bottom:12px; line-height:1.6;">
+        Cochez les produits enregistrés dans l'onglet <strong>DLC & Stocks</strong> pour lesquels vous voulez imprimer une étiquette à coller. Les étiquettes affichent le nom, la date de production/réception, la DLC, le lieu et les allergènes déclarés (si renseignés dans l'onglet Allergènes).
+      </p>
+      <div class="actions-top" style="justify-content:flex-start;">
+        <button class="btn btn-secondaire btn-petit" id="etiq-tout-cocher">Tout sélectionner</button>
+        <button class="btn btn-secondaire btn-petit" id="etiq-tout-decocher">Tout désélectionner</button>
+        <button class="btn btn-principal btn-petit" id="etiq-imprimer">🖨 Imprimer les étiquettes sélectionnées</button>
+      </div>
+      <div class="etiquettes-grille" id="etiq-grille"></div>
+      <div class="vide" id="etiq-vide" style="display:none;">Aucun produit dans votre liste DLC pour le moment. Ajoutez d'abord des produits dans l'onglet "DLC & Stocks".</div>
+    </div>
+  </section>
+
+  <!-- ===================== NON-CONFORMITES ===================== -->
+  <section id="nonconformites" class="onglet">
+    <div class="carte">
+      <h2>Déclarer une non-conformité</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Type</label>
+          <select id="nc-type">
+            <option>Température hors norme</option><option>Produit périmé / DLC dépassée</option>
+            <option>Hygiène / Nettoyage</option><option>Réception non conforme</option>
+            <option>Matériel défectueux</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="champ"><label>Date</label><input type="date" id="nc-date"></div>
+        <div class="champ"><label>Constaté par</label><input type="text" id="nc-personne" placeholder="Initiales / nom"></div>
+      </div>
+      <div class="champ" style="margin-bottom:10px;">
+        <label>Description du problème constaté</label>
+        <input type="text" id="nc-description" placeholder="Ex: Chambre froide n°2 relevée à 7°C ce matin">
+      </div>
+      <div class="champ" style="margin-bottom:10px;">
+        <label>Action corrective mise en place</label>
+        <input type="text" id="nc-action" placeholder="Ex: Produits transférés en chambre froide n°1, technicien appelé">
+      </div>
+      <button class="btn btn-principal" id="nc-ajouter">+ Déclarer la non-conformité</button>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="nc-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="nc-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="nc-imprimer">🖨 Imprimer le registre</button>
+      </div>
+      <h2>Suivi des non-conformités</h2>
+      <div id="nc-liste"></div>
+      <div class="vide" id="nc-vide" style="display:none;">Aucune non-conformité déclarée — bravo, tout est conforme ! ✓</div>
+    </div>
+  </section>
+
+  <!-- ===================== ALLERGENES ===================== -->
+  <section id="allergenes" class="onglet">
+    <div class="carte">
+      <h2>Déclarer les allergènes d'un plat / d'une recette</h2>
+      <p style="font-size:12px; color:var(--gris); margin-bottom:12px; line-height:1.6;">
+        L'affichage des <strong>14 allergènes majeurs</strong> est une obligation légale en restauration (règlement INCO). Renseignez chaque plat de votre carte une seule fois — vous pourrez ensuite imprimer un tableau récapitulatif à afficher pour vos clients.
+      </p>
+      <div class="champ" style="margin-bottom:12px; max-width:360px;">
+        <label>Nom du plat / de la recette</label>
+        <input type="text" id="allerg-plat" placeholder="Ex: Velouté de potimarron aux noisettes">
+      </div>
+      <label style="font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:8px;">Allergènes présents</label>
+      <div class="allergene-grille" id="allerg-grille"></div>
+      <button class="btn btn-principal" id="allerg-ajouter">+ Enregistrer ce plat</button>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="allerg-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="allerg-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="allerg-imprimer">🖨 Imprimer le tableau client</button>
+      </div>
+      <h2>Tableau récapitulatif des plats</h2>
+      <table>
+        <thead><tr><th>Plat</th><th>Allergènes déclarés</th><th></th></tr></thead>
+        <tbody id="allerg-tableau"></tbody>
+      </table>
+      <div class="vide" id="allerg-vide" style="display:none;">Aucun plat enregistré pour le moment.</div>
+    </div>
+  </section>
+
+  <!-- ===================== RECEPTION MARCHANDISES ===================== -->
+  <section id="reception" class="onglet">
+    <div class="carte">
+      <h2>Enregistrer une livraison</h2>
+      <div class="formulaire">
+        <div class="champ"><label>Fournisseur</label><input type="text" id="recep-fournisseur" placeholder="Ex: Boucherie Dupont"></div>
+        <div class="champ"><label>Date de livraison</label><input type="date" id="recep-date"></div>
+        <div class="champ"><label>Heure</label><input type="time" id="recep-heure"></div>
+        <div class="champ"><label>Température du véhicule / produit (°C)</label><input type="number" id="recep-temperature" step="0.1" placeholder="Ex: 3.5"></div>
+        <div class="champ"><label>État de l'emballage</label>
+          <select id="recep-emballage">
+            <option>Conforme</option><option>Légèrement abîmé (accepté)</option><option>Non conforme (refusé)</option>
+          </select>
+        </div>
+        <div class="champ"><label>Conformité du bon de livraison</label>
+          <select id="recep-bon">
+            <option>Conforme</option><option>Non conforme / écart constaté</option>
+          </select>
+        </div>
+        <div class="champ"><label>Réceptionné par</label><input type="text" id="recep-personne" placeholder="Initiales / nom"></div>
+      </div>
+      <div class="champ" style="margin-bottom:10px;">
+        <label>Remarques (facultatif)</label>
+        <input type="text" id="recep-remarque" placeholder="Ex: Cageot de salades légèrement humide, accepté avec réserve">
+      </div>
+      <button class="btn btn-principal" id="recep-ajouter">+ Enregistrer la livraison</button>
+    </div>
+
+    <div class="carte">
+      <div class="actions-top">
+        <button class="btn btn-secondaire btn-petit" id="recep-export">⬇ Exporter les données</button>
+        <button class="btn btn-secondaire btn-petit" id="recep-import">⬆ Importer une sauvegarde</button>
+        <button class="btn btn-secondaire btn-petit" id="recep-imprimer">🖨 Imprimer le registre</button>
+      </div>
+      <h2>Historique des réceptions</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Heure</th><th>Fournisseur</th><th>T°</th><th>Emballage</th><th>Bon livraison</th><th>Par</th><th>Statut</th><th></th></tr></thead>
+        <tbody id="recep-tableau"></tbody>
+      </table>
+      <div class="vide" id="recep-vide" style="display:none;">Aucune livraison enregistrée pour le moment.</div>
+    </div>
+  </section>
+
+</main>
+
+<div class="photo-modale" id="photo-modale"><img id="photo-modale-img" src="" alt="Étiquette agrandie"></div>
+
+<!-- MODAL GUIDE DE DEMARRAGE -->
+<div class="modal-overlay" id="modal-guide">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>📖 Guide de démarrage — Traçabilité HACCP</h2>
+      <span class="fermer" id="fermer-guide">✕</span>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px; margin-bottom:18px; line-height:1.7; color:var(--gris-fonce);">
+        Bienvenue Chef ! Voici comment bien démarrer avec votre outil de traçabilité. Suivez ces étapes une seule fois pour tout configurer, ensuite c'est juste la saisie quotidienne.
+      </p>
+
+      <div style="font-size:13px; font-weight:800; color:var(--vert); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">⚙️ Configuration initiale (une seule fois)</div>
+
+      <div class="etape-guide">
+        <div class="num">1</div>
+        <div class="texte">
+          <h4>🌡️ Déclarez vos équipements de froid</h4>
+          <p>Allez dans <strong>🧊 Équipements Froid</strong> → ajoutez chaque frigo / chambre froide de votre cuisine avec sa plage de température. Ils apparaîtront ensuite dans la liste des <strong>Relevés Température</strong>. <em>Recommandé : chambre froide positive, chambre froide négative, frigo de service, vitrine.</em></p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">2</div>
+        <div class="texte">
+          <h4>🧽 Créez votre plan de nettoyage</h4>
+          <p>Allez dans <strong>Plan de Nettoyage</strong> → ajoutez chaque tâche avec son jour. Commencez par les tâches quotidiennes (plans de travail, sols, four Rational, Vario) puis les hebdomadaires (hottes, chambres froides).</p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">3</div>
+        <div class="texte">
+          <h4>🍟 Déclarez vos friteuses</h4>
+          <p>Allez dans <strong>Friteuses</strong> → ajoutez chaque friteuse avec la date de mise en place de l'huile en cours. L'outil calculera automatiquement quand la vidanger.</p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">4</div>
+        <div class="texte">
+          <h4>🌾 Déclarez les allergènes de vos plats</h4>
+          <p>Allez dans <strong>Allergènes</strong> → entrez chaque plat de votre carte avec ses allergènes. Vous pourrez ensuite imprimer le tableau réglementaire à afficher pour vos clients.</p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">5</div>
+        <div class="texte">
+          <h4>🏷️ Commencez à saisir vos DLC</h4>
+          <p>Allez dans <strong>DLC & Stocks</strong> → ajoutez vos produits en stock avec leur date limite. Photographiez l'étiquette du fournisseur pour garder la preuve. L'outil vous alertera dès que ça approche.</p>
+        </div>
+      </div>
+
+      <div style="font-size:13px; font-weight:800; color:var(--vert); text-transform:uppercase; letter-spacing:1px; margin:20px 0 12px;">📅 La routine quotidienne (chaque jour)</div>
+
+      <div class="etape-guide">
+        <div class="num">🌅</div>
+        <div class="texte">
+          <h4>En arrivant le matin</h4>
+          <p>Allez dans l'onglet <strong>✅ Aujourd'hui</strong> → il vous liste tout ce qu'il faut faire. Commencez par les relevés de température (frigos/chambres froides), puis cochez les tâches de nettoyage au fur et à mesure.</p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">📦</div>
+        <div class="texte">
+          <h4>À chaque livraison</h4>
+          <p>Allez dans <strong>Réception</strong> → notez le fournisseur, la température du camion, l'état de l'emballage. Puis allez dans <strong>DLC & Stocks</strong> pour saisir les nouveaux produits reçus avec leur DLC.</p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">🍽️</div>
+        <div class="texte">
+          <h4>Après chaque cuisson avec refroidissement</h4>
+          <p>Allez dans <strong>❄️ Refroidissement</strong> → notez l'heure et la température de sortie de cuisson, puis l'heure et la température une fois en cellule. L'outil vérifie que vous respectez la règle des 2h.</p>
+        </div>
+      </div>
+      <div class="etape-guide">
+        <div class="num">💾</div>
+        <div class="texte">
+          <h4>Une fois par semaine</h4>
+          <p>Dans chaque onglet, cliquez sur <strong>"Exporter les données"</strong> pour sauvegarder dans un fichier. Conservez ces fichiers dans un dossier dédié — c'est votre archive HACCP en cas de contrôle sanitaire.</p>
+        </div>
+      </div>
+
+      <div style="background:var(--vert-clair); border:1px solid var(--vert); border-radius:8px; padding:14px 16px; margin-top:16px; font-size:12px; line-height:1.7;">
+        💡 <strong>Conseil :</strong> en cas de contrôle de la DDPP (inspection sanitaire), ils demandent en priorité : <strong>les relevés de température des 3 derniers mois, le plan de nettoyage signé, les DLC tracées et les non-conformités avec actions correctives</strong>. Ces 4 modules sont vos priorités absolues.
+      </div>
+
+      <div style="margin-top:20px; text-align:center;">
+        <button class="btn btn-principal" id="btn-prefill">🚀 Initialiser avec des données d'exemple</button>
+        <p style="font-size:11px; color:var(--gris); margin-top:8px;">Remplit l'outil avec des produits, tâches et équipements typiques d'une cuisine pro — vous n'aurez qu'à adapter.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="bandeau-erreur" style="display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#B83227; color:#fff; padding:12px 16px; border-radius:12px; font-size:13px; box-shadow:0 8px 24px rgba(0,0,0,.25);"></div>
+<footer>Traçabilité HACCP — Restaurant Le Modulo · Données enregistrées localement sur cet ordinateur · 2026</footer>
+
+<script>
+// ===================== MODAL GUIDE =====================
+function ouvrirGuide() { document.getElementById('modal-guide').classList.add('ouverte'); }
+function fermerGuide() { document.getElementById('modal-guide').classList.remove('ouverte'); }
+
+// ===================== UTILITAIRES =====================
+function lireDonnees(cle) { try { return JSON.parse(localStorage.getItem(cle)) || []; } catch { return []; } }
+function ecrireDonnees(cle, valeur) {
+  try { localStorage.setItem(cle, JSON.stringify(valeur)); majJaugeMemoire(); }
+  catch (e) {
+    const msg = "❌ NON ENREGISTRÉ : la mémoire du navigateur est pleine. Va dans 📊 Tableau de bord → « Alléger toutes les photos » ou « Supprimer les photos des produits périmés », puis recommence.";
+    alert(msg); afficherErreur(msg); majJaugeMemoire();
+    throw e;
+  }
+}
+// ---------- Mémoire & erreurs ----------
+const QUOTA_APPROX = 5 * 1024 * 1024;
+function memoireUtilisee() {
+  let total = 0;
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); total += k.length + (localStorage.getItem(k) || '').length; } } catch (e) {}
+  return total;
+}
+function majJaugeMemoire() {
+  const pct = Math.min(100, Math.round(memoireUtilisee() / QUOTA_APPROX * 100));
+  const j = document.getElementById('jauge-memoire');
+  if (j) {
+    j.textContent = `Mémoire : ${pct} %`;
+    j.style.background = pct >= 85 ? '#B83227' : (pct >= 65 ? '#B07A12' : 'rgba(255,255,255,.14)');
+  }
+  const det = document.getElementById('memoire-detail');
+  if (det) {
+    let nbPhotos = 0, poidsPhotos = 0;
+    try { lireDonnees('haccp_dlc').forEach(d => { if (d.photo) { nbPhotos++; poidsPhotos += d.photo.length; } }); } catch (e) {}
+    det.innerHTML = `Utilisée : <strong>${pct} %</strong> · dont <strong>${nbPhotos}</strong> photo(s) d'étiquette = ${Math.round(poidsPhotos / QUOTA_APPROX * 100)} %.` +
+      (pct >= 85 ? ' <span style="color:var(--rouge); font-weight:700;">Presque plein : les nouveaux enregistrements risquent d\'échouer.</span>' : '');
+  }
+}
+function afficherErreur(msg) {
+  const b = document.getElementById('bandeau-erreur');
+  if (!b) { alert(msg); return; }
+  b.innerHTML = '⚠️ ' + msg + ' <span style="float:right; cursor:pointer; font-weight:900;" onclick="this.parentNode.style.display=\'none\'">✕</span>';
+  b.style.display = 'block';
+}
+window.addEventListener('error', e => afficherErreur('Erreur : ' + (e.message || 'inconnue') + ' — fais une capture d\'écran et envoie-la.'));
+window.addEventListener('unhandledrejection', e => afficherErreur('Erreur : ' + ((e.reason && e.reason.message) || e.reason)));
+
+// Réduit une photo (dataURL) : 800 px max, JPEG qualité 0.6 → ~60-120 Ko au lieu de 2-4 Mo
+function compresserImage(dataUrl, maxPx = 800, qualite = 0.6) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const r = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const out = c.toDataURL('image/jpeg', qualite);
+      resolve(out.length < dataUrl.length ? out : dataUrl);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+async function compresserPhotosExistantes(maxPx = 800, qualite = 0.6, seuil = 150000) {
+  const donnees = lireDonnees('haccp_dlc');
+  let n = 0;
+  for (const d of donnees) {
+    if (d.photo && d.photo.length > seuil) {
+      const nouv = await compresserImage(d.photo, maxPx, qualite);
+      if (nouv.length < d.photo.length) { d.photo = nouv; n++; }
+    }
+  }
+  if (n) { localStorage.setItem('haccp_dlc', JSON.stringify(donnees)); }
+  return n;
+}
+
+function isoLocal(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function heureLocale() { return new Date().toTimeString().slice(0,5); }
+function genererId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+function formaterDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function joursRestants(dlc) {
+  const aujourdhui = new Date(); aujourdhui.setHours(0,0,0,0);
+  const dateDLC = new Date(dlc + "T00:00:00");
+  return Math.ceil((dateDLC - aujourdhui) / (1000*60*60*24));
+}
+function exporterJSON(donnees, nomFichier) {
+  const blob = new Blob([JSON.stringify(donnees, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nomFichier;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importerJSON(callback) {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json'; input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', () => {
+    const fichier = input.files[0];
+    document.body.removeChild(input);
+    if (!fichier) return;
+    const lecteur = new FileReader();
+    lecteur.onload = (e) => {
+      try {
+        const donnees = JSON.parse(e.target.result);
+        callback(donnees);
+      } catch {
+        alert('❌ Fichier invalide ou corrompu. Vérifiez que c\'est bien un export de cet outil.');
+      }
+    };
+    lecteur.readAsText(fichier);
+  });
+  input.click();
+}
+
+// Date du jour affichée dans l'en-tête
+document.getElementById('date-actuelle').textContent = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+// ===================== AUJOURD'HUI =====================
+const JOURS_SEMAINE = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
+function majAujourdHui() {
+  const conteneur = document.getElementById('aujourdhui-contenu');
+  const aujourd = new Date();
+  const nomJour = JOURS_SEMAINE[aujourd.getDay()];
+  let html = '';
+
+  // --- Relevés de température : toujours à faire chaque matin ---
+  html += `<div class="aujourd-hui-section">
+    <div class="aujourd-hui-titre">🌡️ Relevés de température — à faire ce matin</div>`;
+  const equipementsConnus = ['Chambre froide positive','Chambre froide négative','Réfrigérateur de service','Congélateur','Vitrine réfrigérée','Liaison chaude / Maintien'];
+  const relevesDuJour = lireDonnees(CLE_TEMP).filter(r => r.date === isoLocal(aujourd));
+  const equipementsReleves = relevesDuJour.map(r => r.equipement);
+  const tempsUniquesSauvegardes = [...new Set(lireDonnees(CLE_TEMP).map(r => r.equipement))];
+  const equipementsDeclares = lireDonnees(CLE_EF).filter(e => e.type !== 'Liaison chaude / Maintien').map(e => e.nom);
+  const equipementsAfficher = equipementsDeclares.length > 0 ? equipementsDeclares
+    : (tempsUniquesSauvegardes.length > 0 ? tempsUniquesSauvegardes : []);
+  if (equipementsAfficher.length === 0) {
+    html += `<p style="font-size:12px; color:var(--rouge);">Aucun équipement déclaré — ajoutez vos frigos dans l'onglet 🧊 Équipements Froid.</p>`;
+  }
+  equipementsAfficher.forEach(eq => {
+    const fait = equipementsReleves.includes(eq);
+    const releve = relevesDuJour.filter(r => r.equipement === eq).sort((a,b) => (b.heure||'').localeCompare(a.heure||''))[0];
+    html += `<div class="tache-du-jour ${fait ? 'fait' : ''}">
+      <span>${fait ? '✅' : '⬜'} ${eq}</span>
+      <span style="font-size:11px; color:${fait ? 'var(--vert)' : 'var(--rouge)'};">
+        ${fait ? `${releve.valeur}°C à ${releve.heure||'—'} · ${statutTemperature(eq, releve.valeur).texte}` : 'À relever'}
+      </span>
+    </div>`;
+  });
+  html += `<div style="margin-top:6px;"><button class="btn btn-principal btn-petit" onclick="document.querySelector('[data-onglet=temperatures]').click()">→ Aller aux relevés</button></div>`;
+  html += `</div>`;
+
+  // --- Nettoyage du jour ---
+  const tachesJour = lireDonnees(CLE_NET).filter(t => t.jour === nomJour);
+  html += `<div class="aujourd-hui-section">
+    <div class="aujourd-hui-titre">🧽 Nettoyage du ${nomJour}</div>`;
+  if (tachesJour.length === 0) {
+    html += `<p style="font-size:12px; color:var(--gris); font-style:italic;">Aucune tâche planifiée ce jour — ou le planning n'a pas encore été configuré.</p>`;
+  } else {
+    tachesJour.forEach(t => {
+      html += `<div class="tache-du-jour ${t.fait ? 'fait' : ''}">
+        <span>${t.fait ? '✅' : '⬜'} ${t.tache} <em style="color:var(--gris);">(${t.zone})</em></span>
+        <span style="font-size:11px; color:${t.fait ? 'var(--vert)' : 'var(--or)'};">${t.fait ? 'Fait' : 'À faire'}</span>
+      </div>`;
+    });
+  }
+  html += `<div style="margin-top:6px;"><button class="btn btn-principal btn-petit" onclick="document.querySelector('[data-onglet=nettoyage]').click()">→ Aller au planning</button></div>`;
+  html += `</div>`;
+
+  // --- DLC à surveiller ---
+  const dlcUrgentes = lireDonnees(CLE_DLC).filter(d => joursRestants(d.dlc) <= 2 && joursRestants(d.dlc) >= 0);
+  const dlcDepassees = lireDonnees(CLE_DLC).filter(d => joursRestants(d.dlc) < 0);
+  html += `<div class="aujourd-hui-section">
+    <div class="aujourd-hui-titre">🏷️ DLC à surveiller</div>`;
+  if (dlcDepassees.length === 0 && dlcUrgentes.length === 0) {
+    html += `<div class="tache-du-jour fait"><span>✅ Tous les produits sont dans les délais</span></div>`;
+  }
+  dlcDepassees.forEach(d => {
+    html += `<div class="tache-du-jour" style="border-color:var(--rouge); background:var(--rouge-clair);">
+      <span>🔴 <strong>${d.nom}</strong> — PÉRIMÉ (${formaterDate(d.dlc)})</span>
+      <span style="font-size:11px; color:var(--rouge); font-weight:700;">À retirer immédiatement</span>
+    </div>`;
+  });
+  dlcUrgentes.forEach(d => {
+    html += `<div class="tache-du-jour" style="border-color:var(--or); background:var(--or-clair);">
+      <span>🟡 <strong>${d.nom}</strong></span>
+      <span style="font-size:11px; color:var(--or);">DLC le ${formaterDate(d.dlc)} — à utiliser</span>
+    </div>`;
+  });
+  html += `<div style="margin-top:6px;"><button class="btn btn-principal btn-petit" onclick="document.querySelector('[data-onglet=dlc]').click()">→ Voir tous les produits</button></div>`;
+  html += `</div>`;
+
+  // --- Friteuses ---
+  const friteusesAlerte = lireDonnees(CLE_FRIT).filter(f => statutHuile(f).classe !== 'ok');
+  if (friteusesAlerte.length > 0) {
+    html += `<div class="aujourd-hui-section">
+      <div class="aujourd-hui-titre">🍟 Friteuses — attention</div>`;
+    friteusesAlerte.forEach(f => {
+      const s = statutHuile(f);
+      html += `<div class="tache-du-jour" style="border-color:${s.classe==='urgent'?'var(--rouge)':'var(--or)'}; background:${s.classe==='urgent'?'var(--rouge-clair)':'var(--or-clair)'};">
+        <span>${s.classe==='urgent'?'🔴':'🟡'} <strong>${f.nom}</strong></span>
+        <span style="font-size:11px;">${s.texte}</span>
+      </div>`;
+    });
+    html += `<div style="margin-top:6px;"><button class="btn btn-principal btn-petit" onclick="document.querySelector('[data-onglet=friteuses]').click()">→ Gérer les friteuses</button></div>`;
+    html += `</div>`;
+  }
+
+  // --- Non-conformités ouvertes ---
+  const ncOuvertes = lireDonnees(CLE_NC).filter(n => !n.resolue);
+  if (ncOuvertes.length > 0) {
+    html += `<div class="aujourd-hui-section">
+      <div class="aujourd-hui-titre">🚨 Non-conformités à résoudre</div>`;
+    ncOuvertes.forEach(n => {
+      html += `<div class="tache-du-jour" style="border-color:var(--rouge); background:var(--rouge-clair);">
+        <span>🔴 <strong>${n.type}</strong> — ${n.description}</span>
+        <span style="font-size:11px; color:var(--rouge);">Depuis le ${formaterDate(n.date)}</span>
+      </div>`;
+    });
+    html += `<div style="margin-top:6px;"><button class="btn btn-principal btn-petit" onclick="document.querySelector('[data-onglet=nonconformites]').click()">→ Voir les non-conformités</button></div>`;
+    html += `</div>`;
+  }
+
+  conteneur.innerHTML = html;
+}
+
+// ===================== NAVIGATION ONGLETS =====================
+document.querySelectorAll('.onglet-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.onglet-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.onglet').forEach(o => o.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.onglet).classList.add('active');
+    if (btn.dataset.onglet === 'tableau-bord') majTableauBord();
+  });
+});
+
+// ===================== CATALOGUE MERCURIALE 2026 =====================
+const CATALOGUE_MERCURIALE = [
+  // --- POISSONS & FRUITS DE MER ---
+  { nom:'Tentacules poulpe cuit 70-150g (surgelé)',       categorie:'Poisson',         lieu:'Congélateur',              dlcJours:180 },
+  { nom:'Filet saumon avec peau Trim B s/v (frais)',      categorie:'Poisson',         lieu:'Chambre froide positive',  dlcJours:3   },
+  { nom:'Saumon fumé prétranché Norvège 0,9-1,2kg',       categorie:'Poisson',         lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Carpaccio poulpe cuit 50g x20',                  categorie:'Poisson',         lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Thon en boîte / poche alu (naturel)',            categorie:'Poisson',         lieu:'Sec / Réserve',            dlcJours:365 },
+  // --- VIANDES & VOLAILLES ---
+  { nom:'Steak haché façon bouchère 15-20% MG 150g',     categorie:'Viande',          lieu:'Chambre froide positive',  dlcJours:3   },
+  { nom:'Tartare couteau Charolais VBF 180g',             categorie:'Viande',          lieu:'Chambre froide positive',  dlcJours:2   },
+  { nom:'Filet poulet blanc France s/v 2,5kg',            categorie:'Viande',          lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Pluma de porc dégraissée UE ~100-130g (surgelé)',categorie:'Viande',          lieu:'Congélateur',              dlcJours:180 },
+  { nom:'Filet poulet halal s/v UE 2,5kg',                categorie:'Viande',          lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Noix / sous-noix de veau blanche SP VVF 4kg',   categorie:'Viande',          lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Poitrine de veau / demi-carré VVF',              categorie:'Viande',          lieu:'Chambre froide positive',  dlcJours:5   },
+  // --- CHARCUTERIE ---
+  { nom:'Jambon sec Savoie désossé 12 mois ~6kg',         categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Chorizo Iberico Bellota ~1,25kg',                categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Jambon Serrano désossé 10-15 mois ~5-6kg',      categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Jambon Serrano 24 mois',                         categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Rosette de Lyon ~2,5kg',                         categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Jambon cuit truffe avec couenne ~4kg',           categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:14  },
+  { nom:'Poitrine fumée tranchée ~800g',                  categorie:'Charcuterie',     lieu:'Chambre froide positive',  dlcJours:14  },
+  // --- FROMAGES & CRÈMERIE ---
+  { nom:'Grana Padano AOP râpé 500g',                     categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Crème UHT 18-20% MG 1L',                        categorie:'Produit laitier', lieu:'Sec / Réserve',            dlcJours:90  },
+  { nom:'Comté AOP 18 mois ~3-3,5kg',                    categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Beurre doux 82% MG plaquette 10kg',              categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Crème UHT 35% MG 1L',                           categorie:'Produit laitier', lieu:'Sec / Réserve',            dlcJours:90  },
+  { nom:'Saint-Nectaire AOP fermier ~1,6kg',              categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:14  },
+  { nom:'Tomme de Savoie IGP ~1,7kg',                    categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Fromage à tartiner / cream cheese 1,5-2kg',     categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:14  },
+  { nom:'Cheddar rouge râpé 1kg',                        categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Lait UHT entier 6x1L',                          categorie:'Produit laitier', lieu:'Sec / Réserve',            dlcJours:90  },
+  { nom:'Saint-Marcellin dauphinois 80g x10',            categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:7   },
+  { nom:'Burrata 125g x8',                               categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Burratina 50g',                                 categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Jaune d\'œuf liquide pasteurisé 1kg',           categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:28  },
+  { nom:'Cheddar maturé / mature tranches 500g',         categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Faisselle fromage blanc 40% MG 125-150g',       categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:7   },
+  { nom:'Fourme d\'Ambert',                              categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:21  },
+  { nom:'Gorgonzola DOP 1/8 ~1,5kg',                    categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:14  },
+  { nom:'Blanc d\'œuf liquide pasteurisé 2L',            categorie:'Produit laitier', lieu:'Chambre froide positive',  dlcJours:28  },
+  // --- ÉPICERIE SALÉE ---
+  { nom:'Huile tournesol friture 25L + 5L',              categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Huile d\'olive vierge extra 5L',                categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Jus de Yuzu sans sucre 1kg (Sicoly)',           categorie:'Sec / Épicerie',  lieu:'Chambre froide positive',  dlcJours:14  },
+  { nom:'Fond de veau brun lié pâte 600-640g',           categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Pignon de pin 1kg',                             categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:180 },
+  { nom:'Sauce soja sucrée Kikkoman 975ml-1L',           categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Bouillon de volaille Maggi / Chef 1,4kg',       categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Tomate confite marinée à l\'huile 1kg',         categorie:'Sec / Épicerie',  lieu:'Chambre froide positive',  dlcJours:14  },
+  { nom:'Tomate séchée',                                 categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:180 },
+  { nom:'Polpa fine Mutti 5/1 (4,05kg)',                 categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Câpres fine Bte 4/4',                           categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Cornichons fins 2,12-2,3L bidon',               categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Oignons surgelés émincés 2,5kg',                categorie:'Légume',          lieu:'Congélateur',              dlcJours:365 },
+  { nom:'Moutarde forte seau 5L',                        categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  // --- PÂTES, RIZ & FÉCULENTS ---
+  { nom:'Riz noir étuvé 5kg',                            categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Riz Vénéré complet bio 6x500g',                 categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Riz arborio risotto 1kg / 5kg',                 categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Pâtes (penne/spaghetti/lasagne) La Molisana',   categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Gnocchi pomme de terre 1kg',                    categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  // --- FRUITS, LÉGUMES & PURÉES ---
+  { nom:'Purée passion pasteurisée 1-2,5kg',             categorie:'Légume',          lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Purée framboise pasteurisée 1-2,5kg',           categorie:'Légume',          lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Suprême de fruits / tartare mangue-yuzu',       categorie:'Légume',          lieu:'Chambre froide positive',  dlcJours:5   },
+  { nom:'Purée mangue pasteurisée 1-2,5kg',              categorie:'Légume',          lieu:'Chambre froide positive',  dlcJours:30  },
+  { nom:'Coulis fruits rouges 500g',                     categorie:'Légume',          lieu:'Chambre froide positive',  dlcJours:14  },
+  // --- SUCRE, CHOCOLAT & PÂTISSERIE ---
+  { nom:'Extrait vanille Tahitensis 500ml (Sicoly)',      categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Poudre d\'amande blanche 1kg',                  categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Sucre glace 10kg',                              categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Panure Panko 1-2kg',                            categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Gousse de vanille Bourbon Madagascar 1kg',      categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  { nom:'Chocolat lait couverture 35% pastilles 10kg',   categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Poire en boîte',                                categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:365 },
+  { nom:'Agar agar gélifiant végétal E406 1kg',          categorie:'Sec / Épicerie',  lieu:'Sec / Réserve',            dlcJours:730 },
+  // --- BOULANGERIE & VIENNOISERIE ---
+  { nom:'Pinsa',                                         categorie:'Sec / Épicerie',  lieu:'Congélateur',              dlcJours:90  },
+];
+
+// Mercuriale personnalisée (produits ajoutés par l'utilisateur)
+const CLE_MERC_PERSO = 'haccp_mercuriale_perso'; // [{ id, nom, categorie, lieu, dlcJours }]
+
+// (Re)construit les options du select à partir du catalogue + des produits perso
+function remplirOptionsMercuriale() {
+  const sel = document.getElementById('dlc-mercuriale');
+  sel.querySelectorAll('optgroup').forEach(g => g.remove());
+
+  // Produits perso en tête
+  const perso = lireDonnees(CLE_MERC_PERSO);
+  if (perso.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = '⭐ Mes produits';
+    perso.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({ nom: p.nom, categorie: p.categorie, lieu: p.lieu, dlcJours: p.dlcJours });
+      opt.textContent = p.nom;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  }
+
+  // Catalogue 2026 groupé par catégorie
+  const groupes = {};
+  CATALOGUE_MERCURIALE.forEach(p => {
+    if (!groupes[p.categorie]) groupes[p.categorie] = [];
+    groupes[p.categorie].push(p);
+  });
+  Object.entries(groupes).forEach(([cat, produits]) => {
+    const grp = document.createElement('optgroup');
+    grp.label = cat;
+    produits.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(p);
+      opt.textContent = p.nom;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  });
+}
+
+// Liste de gestion des produits perso (sous la carte « Ma mercuriale »)
+function afficherMercurialePerso() {
+  const cont = document.getElementById('merc-liste');
+  const perso = lireDonnees(CLE_MERC_PERSO);
+  if (!perso.length) {
+    cont.innerHTML = '<p style="font-size:12px; color:var(--gris); font-style:italic;">Aucun produit personnel ajouté pour le moment.</p>';
+    return;
+  }
+  cont.innerHTML = '<div style="font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">Mes produits ajoutés à la mercuriale</div>' +
+    perso.map(p => `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--bordure); border-radius:8px; margin-bottom:6px; flex-wrap:wrap;">
+        <span style="font-size:13px;"><strong>${p.nom}</strong> <em style="color:var(--gris);">— ${p.categorie} · ${p.lieu} · ${p.dlcJours} j</em></span>
+        <button class="btn btn-danger" data-id="${p.id}" data-action="suppr-merc">Retirer</button>
+      </div>`).join('');
+  cont.querySelectorAll('[data-action="suppr-merc"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let perso = lireDonnees(CLE_MERC_PERSO);
+      perso = perso.filter(p => p.id !== b.dataset.id);
+      ecrireDonnees(CLE_MERC_PERSO, perso);
+      afficherMercurialePerso();
+      remplirOptionsMercuriale();
+    });
+  });
+}
+
+document.getElementById('merc-ajouter').addEventListener('click', () => {
+  const nom = document.getElementById('merc-nom').value.trim();
+  const dlcJours = parseInt(document.getElementById('merc-dlcjours').value, 10);
+  if (!nom) { alert('Merci de renseigner le nom du produit.'); return; }
+  if (!dlcJours || dlcJours < 1) { alert('Merci d\'indiquer une durée de conservation valide (en jours).'); return; }
+  const perso = lireDonnees(CLE_MERC_PERSO);
+  perso.push({
+    id: genererId(),
+    nom,
+    categorie: document.getElementById('merc-categorie').value,
+    lieu: document.getElementById('merc-lieu').value,
+    dlcJours
+  });
+  ecrireDonnees(CLE_MERC_PERSO, perso);
+  document.getElementById('merc-nom').value = '';
+  document.getElementById('merc-dlcjours').value = '';
+  afficherMercurialePerso();
+  remplirOptionsMercuriale();
+});
+
+// Alimenter le select mercuriale
+function initialiserSelectMercuriale() {
+  const sel = document.getElementById('dlc-mercuriale');
+  remplirOptionsMercuriale();
+
+  sel.addEventListener('change', () => {
+    if (!sel.value) return;
+    const p = JSON.parse(sel.value);
+    document.getElementById('dlc-nom').value = p.nom;
+    // Sélectionner la catégorie correspondante
+    const selCat = document.getElementById('dlc-categorie');
+    for (let opt of selCat.options) { if (opt.value === p.categorie) { opt.selected = true; break; } }
+    // Sélectionner le lieu correspondant
+    const selLieu = document.getElementById('dlc-lieu');
+    for (let opt of selLieu.options) { if (opt.value === p.lieu) { opt.selected = true; break; } }
+    // Pré-remplir DLC = aujourd'hui + jours typiques
+    const dlcDate = new Date(Date.now() + p.dlcJours * 86400000);
+    document.getElementById('dlc-date').value = isoLocal(dlcDate);
+    // Date de réception = aujourd'hui
+    document.getElementById('dlc-reception').value = isoLocal();
+    sel.value = ''; // reset le select
+  });
+}
+
+// ===================== PHOTOS D'ÉTIQUETTES (lightbox) =====================
+const modalePhoto = document.getElementById('photo-modale');
+const modalePhotoImg = document.getElementById('photo-modale-img');
+function ouvrirPhoto(src) { modalePhotoImg.src = src; modalePhoto.classList.add('ouverte'); }
+modalePhoto.addEventListener('click', () => { modalePhoto.classList.remove('ouverte'); modalePhotoImg.src = ''; });
+
+let dlcPhotoBase64 = null;
+const dlcPhotoInput = document.getElementById('dlc-photo');
+const dlcPhotoApercu = document.getElementById('dlc-photo-apercu');
+const dlcPhotoStatut = document.getElementById('dlc-photo-statut');
+dlcPhotoInput.addEventListener('change', () => {
+  const fichier = dlcPhotoInput.files[0];
+  if (!fichier) return;
+  const lecteur = new FileReader();
+  const btnAjouter = document.getElementById('dlc-ajouter');
+  btnAjouter.disabled = true;
+  dlcPhotoStatut.textContent = 'Compression de la photo…';
+  lecteur.onerror = () => { btnAjouter.disabled = false; dlcPhotoStatut.textContent = 'Photo illisible, réessaie.'; };
+  lecteur.onload = async (e) => {
+    dlcPhotoBase64 = await compresserImage(e.target.result);
+    btnAjouter.disabled = false;
+    dlcPhotoApercu.src = dlcPhotoBase64;
+    dlcPhotoApercu.style.display = 'inline-block';
+    dlcPhotoStatut.textContent = 'Photo prête à être enregistrée ✓';
+  };
+  lecteur.readAsDataURL(fichier);
+});
+function reinitialiserChampPhoto() {
+  dlcPhotoBase64 = null;
+  dlcPhotoInput.value = '';
+  dlcPhotoApercu.style.display = 'none';
+  dlcPhotoApercu.src = '';
+  dlcPhotoStatut.textContent = 'Aucune photo sélectionnée';
+}
+
+// ===================== DLC & STOCKS =====================
+const CLE_DLC = 'haccp_dlc';
+
+function statutDLC(dlc) {
+  const j = joursRestants(dlc);
+  if (j < 0) return { texte: 'Périmé', classe: 'urgent' };
+  if (j === 0) return { texte: "Aujourd'hui", classe: 'urgent' };
+  if (j <= 2) return { texte: `${j} j restant(s)`, classe: 'attention' };
+  return { texte: `${j} jours`, classe: 'ok' };
+}
+
+function afficherDLC() {
+  const donnees = lireDonnees(CLE_DLC).sort((a,b) => new Date(a.dlc) - new Date(b.dlc));
+  const corps = document.getElementById('dlc-tableau');
+  const vide = document.getElementById('dlc-vide');
+  corps.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+
+  donnees.forEach(item => {
+    const s = statutDLC(item.dlc);
+    const qte = (typeof item.quantite === 'number') ? item.quantite : 1;
+    const tr = document.createElement('tr');
+    const photoCell = item.photo
+      ? `<img class="miniature" src="${item.photo}" data-action="voir-photo" alt="Étiquette ${item.nom}">`
+      : `<span class="miniature-vide">—</span>`;
+    tr.innerHTML = `
+      <td>${photoCell}</td>
+      <td><strong>${item.nom}</strong></td>
+      <td>${item.categorie}</td>
+      <td>${formaterDate(item.reception)}</td>
+      <td>${formaterDate(item.dlc)}</td>
+      <td>${item.lieu}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="btn btn-secondaire btn-petit" data-id="${item.id}" data-action="qte-moins" style="padding:2px 9px; line-height:1;" title="Diminuer">−</button>
+          <strong style="min-width:24px; text-align:center; display:inline-block;${qte === 0 ? 'color:var(--rouge);' : ''}">${qte}</strong>
+          <button class="btn btn-secondaire btn-petit" data-id="${item.id}" data-action="qte-plus" style="padding:2px 9px; line-height:1;" title="Augmenter">+</button>
+        </div>
+      </td>
+      <td><span class="statut ${s.classe}">${s.texte}</span></td>
+      <td><button class="btn btn-danger" data-id="${item.id}" data-action="suppr-dlc">Supprimer</button></td>
+    `;
+    corps.appendChild(tr);
+  });
+
+  corps.querySelectorAll('[data-action="voir-photo"]').forEach(img => {
+    img.addEventListener('click', () => ouvrirPhoto(img.src));
+  });
+
+  corps.querySelectorAll('[data-action="qte-plus"]').forEach(b => {
+    b.addEventListener('click', () => modifierQuantiteDLC(b.dataset.id, +1));
+  });
+  corps.querySelectorAll('[data-action="qte-moins"]').forEach(b => {
+    b.addEventListener('click', () => modifierQuantiteDLC(b.dataset.id, -1));
+  });
+
+  corps.querySelectorAll('[data-action="suppr-dlc"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_DLC);
+      donnees = donnees.filter(d => d.id !== b.dataset.id);
+      ecrireDonnees(CLE_DLC, donnees);
+      afficherDLC(); majTableauBord();
+    });
+  });
+}
+
+function modifierQuantiteDLC(id, delta) {
+  const donnees = lireDonnees(CLE_DLC);
+  const item = donnees.find(d => d.id === id);
+  if (!item) return;
+  const courant = (typeof item.quantite === 'number') ? item.quantite : 1;
+  item.quantite = Math.max(0, courant + delta);
+  ecrireDonnees(CLE_DLC, donnees);
+  afficherDLC(); majTableauBord();
+}
+
+document.getElementById('dlc-ajouter').addEventListener('click', () => {
+  const nom = document.getElementById('dlc-nom').value.trim();
+  const dlc = document.getElementById('dlc-date').value;
+  if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom du produit et la DLC.'); return; }
+  const item = {
+    id: genererId(),
+    nom,
+    categorie: document.getElementById('dlc-categorie').value,
+    reception: document.getElementById('dlc-reception').value,
+    dlc,
+    lieu: document.getElementById('dlc-lieu').value,
+    quantite: Math.max(0, parseInt(document.getElementById('dlc-quantite').value, 10) || 1),
+    photo: dlcPhotoBase64
+  };
+  const donnees = lireDonnees(CLE_DLC);
+  donnees.push(item);
+  ecrireDonnees(CLE_DLC, donnees);
+  document.getElementById('dlc-nom').value = '';
+  document.getElementById('dlc-reception').value = '';
+  document.getElementById('dlc-date').value = '';
+  document.getElementById('dlc-quantite').value = '1';
+  reinitialiserChampPhoto();
+  afficherDLC(); majTableauBord();
+});
+
+document.getElementById('dlc-export').addEventListener('click', () => exporterJSON(
+  { produits: lireDonnees(CLE_DLC), mercuriale: lireDonnees(CLE_MERC_PERSO) },
+  `DLC_export_${isoLocal()}.json`
+));
+document.getElementById('dlc-import').addEventListener('click', () => importerJSON(d => {
+  let produits, mercuriale;
+  if (Array.isArray(d)) {
+    // Ancien format : tableau de produits uniquement
+    produits = d; mercuriale = lireDonnees(CLE_MERC_PERSO);
+  } else if (d && Array.isArray(d.produits)) {
+    // Nouveau format : { produits, mercuriale }
+    produits = d.produits; mercuriale = Array.isArray(d.mercuriale) ? d.mercuriale : [];
+  } else {
+    alert('❌ Format invalide — attendu une sauvegarde DLC & Stocks.'); return;
+  }
+  ecrireDonnees(CLE_DLC, produits);
+  ecrireDonnees(CLE_MERC_PERSO, mercuriale);
+  remplirOptionsMercuriale();
+  afficherMercurialePerso();
+  afficherDLC(); majTableauBord(); afficherEtiquettes();
+  alert(`✅ ${produits.length} produit(s) et ${mercuriale.length} produit(s) de mercuriale importé(s).`);
+}));
+document.getElementById('dlc-imprimer').addEventListener('click', () => window.print());
+
+// ===================== EQUIPEMENTS FROID =====================
+const CLE_EF = 'haccp_equipements_froid';
+
+const EF_ICONES = {
+  'Chambre froide positive':   '🧊',
+  'Chambre froide négative':   '❄️',
+  'Réfrigérateur de service':  '🚪',
+  'Congélateur':               '🥶',
+  'Vitrine réfrigérée':        '🪟',
+  'Liaison chaude / Maintien': '♨️',
+};
+
+// Seuils par défaut selon le type (pour pré-remplir min/max)
+const EF_SEUILS_DEFAUT = {
+  'Chambre froide positive':   { min: 0,  max: 4   },
+  'Chambre froide négative':   { min: -25, max: -18 },
+  'Réfrigérateur de service':  { min: 0,  max: 4   },
+  'Congélateur':               { min: -25, max: -18 },
+  'Vitrine réfrigérée':        { min: 0,  max: 4   },
+  'Liaison chaude / Maintien': { min: 63, max: 90  },
+};
+
+// Pré-remplir les champs min/max quand on change le type
+document.getElementById('ef-type').addEventListener('change', () => {
+  const type = document.getElementById('ef-type').value;
+  const seuils = EF_SEUILS_DEFAUT[type];
+  if (seuils) {
+    document.getElementById('ef-temp-min').value = seuils.min;
+    document.getElementById('ef-temp-max').value = seuils.max;
+  }
+});
+// Pré-remplir au chargement
+(function() {
+  const type = document.getElementById('ef-type').value;
+  const seuils = EF_SEUILS_DEFAUT[type];
+  if (seuils) {
+    document.getElementById('ef-temp-min').value = seuils.min;
+    document.getElementById('ef-temp-max').value = seuils.max;
+  }
+})();
+
+function majSelectEquipements() {
+  const sel = document.getElementById('temp-equipement');
+  const equipements = lireDonnees(CLE_EF);
+  sel.innerHTML = '<option value="">— Sélectionner un équipement —</option>';
+  if (equipements.length === 0) {
+    sel.innerHTML = '<option value="">⚠️ Aucun équipement — ajoutez-en d\'abord dans 🧊 Équipements Froid</option>';
+    return;
+  }
+  // Grouper par type
+  const groupes = {};
+  equipements.forEach(e => {
+    if (!groupes[e.type]) groupes[e.type] = [];
+    groupes[e.type].push(e);
+  });
+  Object.entries(groupes).forEach(([type, liste]) => {
+    const grp = document.createElement('optgroup');
+    grp.label = type;
+    liste.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.nom;
+      opt.textContent = `${EF_ICONES[e.type] || '🌡️'} ${e.nom}`;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  });
+}
+
+function afficherEquipementsFroid() {
+  const equipements = lireDonnees(CLE_EF);
+  const conteneur = document.getElementById('ef-liste');
+  const vide = document.getElementById('ef-vide');
+  conteneur.innerHTML = '';
+  vide.style.display = equipements.length === 0 ? 'block' : 'none';
+
+  equipements.forEach(e => {
+    const carte = document.createElement('div');
+    carte.className = 'ef-carte';
+    const icone = EF_ICONES[e.type] || '🌡️';
+    const plage = `${e.tempMin}°C → ${e.tempMax}°C`;
+    carte.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="ef-icone">${icone}</span>
+        <div class="ef-infos">
+          <h4>${e.nom}</h4>
+          <p>${e.type}${e.emplacement ? ' · ' + e.emplacement : ''}</p>
+          <span class="ef-plage">Plage cible : ${plage}</span>
+        </div>
+      </div>
+      <div class="ef-actions">
+        <button class="btn btn-secondaire btn-petit" data-id="${e.id}" data-action="relever-ef">🌡️ Relever maintenant</button>
+        <button class="btn btn-danger" data-id="${e.id}" data-action="suppr-ef">Supprimer</button>
+      </div>
+    `;
+    conteneur.appendChild(carte);
+  });
+
+  // Bouton "Relever maintenant" → basculer vers l'onglet températures avec l'équipement présélectionné
+  conteneur.querySelectorAll('[data-action="relever-ef"]').forEach(b => {
+    b.addEventListener('click', () => {
+      const eq = lireDonnees(CLE_EF).find(e => e.id === b.dataset.id);
+      if (!eq) return;
+      // Basculer vers l'onglet températures
+      document.querySelector('[data-onglet="temperatures"]').click();
+      // Sélectionner l'équipement dans le select
+      setTimeout(() => {
+        const sel = document.getElementById('temp-equipement');
+        for (let opt of sel.options) {
+          if (opt.value === eq.nom) { opt.selected = true; break; }
+        }
+      }, 100);
+    });
+  });
+
+  conteneur.querySelectorAll('[data-action="suppr-ef"]').forEach(b => {
+    b.addEventListener('click', () => {
+      if (!confirm('Supprimer cet équipement ? Les relevés associés ne seront pas supprimés.')) return;
+      let equipements = lireDonnees(CLE_EF);
+      equipements = equipements.filter(e => e.id !== b.dataset.id);
+      ecrireDonnees(CLE_EF, equipements);
+      afficherEquipementsFroid();
+      majSelectEquipements();
+    });
+  });
+
+  majSelectEquipements();
+}
+
+document.getElementById('ef-ajouter').addEventListener('click', () => {
+  const nom = document.getElementById('ef-nom').value.trim();
+  if (!nom) { alert('Merci de renseigner un nom pour cet équipement.'); return; }
+  const tempMin = document.getElementById('ef-temp-min').value;
+  const tempMax = document.getElementById('ef-temp-max').value;
+  if (tempMin === '' || tempMax === '') { alert('Merci de renseigner les températures cibles min et max.'); return; }
+  const item = {
+    id: genererId(),
+    nom,
+    type: document.getElementById('ef-type').value,
+    tempMin: parseFloat(tempMin),
+    tempMax: parseFloat(tempMax),
+    emplacement: document.getElementById('ef-emplacement').value.trim(),
+  };
+  const equipements = lireDonnees(CLE_EF);
+  if (equipements.find(e => e.nom.toLowerCase() === nom.toLowerCase())) {
+    alert('Un équipement avec ce nom existe déjà.'); return;
+  }
+  equipements.push(item);
+  ecrireDonnees(CLE_EF, equipements);
+  document.getElementById('ef-nom').value = '';
+  document.getElementById('ef-emplacement').value = '';
+  afficherEquipementsFroid();
+  majSelectEquipements();
+});
+
+// ===================== RELEVES TEMPERATURE =====================
+const CLE_TEMP = 'haccp_temperatures';
+
+function statutTemperature(equipement, valeur) {
+  const v = parseFloat(valeur);
+  // Chercher dans les équipements personnalisés en premier
+  const equipements = lireDonnees(CLE_EF);
+  const eq = equipements.find(e => e.nom === equipement);
+  let normal;
+  if (eq) {
+    if (eq.type === 'Chambre froide négative' || eq.type === 'Congélateur') {
+      normal = v <= eq.tempMax;            // plus froid = toujours conforme
+    } else if (eq.type === 'Liaison chaude / Maintien') {
+      normal = v >= eq.tempMin;            // plus chaud = toujours conforme
+    } else {
+      normal = v >= eq.tempMin && v <= eq.tempMax;
+    }
+  } else {
+    // Fallback sur les seuils par type générique
+    if (equipement.includes('positive') || equipement.includes('service') || equipement.includes('Vitrine')) {
+      normal = v >= 0 && v <= 4;
+    } else if (equipement.includes('négative') || equipement.includes('Congélateur')) {
+      normal = v <= -15;
+    } else if (equipement.includes('chaude') || equipement.includes('Maintien')) {
+      normal = v >= 63;
+    } else {
+      normal = true;
+    }
+  }
+  return normal ? { texte: 'Conforme', classe: 'ok' } : { texte: 'Hors norme', classe: 'urgent' };
+}
+
+function afficherTemperatures() {
+  const donnees = lireDonnees(CLE_TEMP).sort((a,b) => new Date(b.date+'T'+(b.heure||'00:00')) - new Date(a.date+'T'+(a.heure||'00:00')));
+  const corps = document.getElementById('temp-tableau');
+  const vide = document.getElementById('temp-vide');
+  corps.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+
+  donnees.forEach(item => {
+    const s = statutTemperature(item.equipement, item.valeur);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formaterDate(item.date)}</td>
+      <td>${item.heure || '—'}</td>
+      <td>${item.equipement}</td>
+      <td><strong>${item.valeur} °C</strong></td>
+      <td>${item.personne || '—'}</td>
+      <td><span class="statut ${s.classe}">${s.texte}</span></td>
+      <td><button class="btn btn-danger" data-id="${item.id}" data-action="suppr-temp">Supprimer</button></td>
+    `;
+    corps.appendChild(tr);
+  });
+
+  corps.querySelectorAll('[data-action="suppr-temp"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_TEMP);
+      donnees = donnees.filter(d => d.id !== b.dataset.id);
+      ecrireDonnees(CLE_TEMP, donnees);
+      afficherTemperatures(); majTableauBord();
+    });
+  });
+}
+
+document.getElementById('temp-ajouter').addEventListener('click', () => {
+  const valeur = document.getElementById('temp-valeur').value;
+  const date = document.getElementById('temp-date').value;
+  const equipementChoisi = document.getElementById('temp-equipement').value;
+  if (!equipementChoisi) {
+    if (lireDonnees(CLE_EF).length === 0) {
+      alert("Aucun équipement déclaré.\n\nAllez d'abord dans l'onglet 🧊 Équipements Froid pour ajouter vos frigos / chambres froides, puis revenez ici.");
+    } else {
+      alert('Merci de choisir l\'équipement relevé dans la liste.');
+    }
+    return;
+  }
+  if (valeur === '' || isNaN(parseFloat(valeur))) { alert('Merci de saisir une température valide (ex : 3.2 ou -18).'); return; }
+  if (!date) { alert('Merci de renseigner la date.'); return; }
+  const item = {
+    id: genererId(),
+    equipement: equipementChoisi,
+    valeur,
+    date,
+    heure: document.getElementById('temp-heure').value,
+    personne: document.getElementById('temp-personne').value.trim()
+  };
+  const donnees = lireDonnees(CLE_TEMP);
+  donnees.push(item);
+  ecrireDonnees(CLE_TEMP, donnees);
+  document.getElementById('temp-valeur').value = '';
+  document.getElementById('temp-equipement').value = '';
+  rafraichirDateHeureReleve();
+  afficherTemperatures(); majTableauBord(); majAujourdHui();
+  const s = statutTemperature(item.equipement, item.valeur);
+  if (s.classe === 'urgent') {
+    alert(`⚠️ ${item.equipement} : ${item.valeur}°C est HORS NORME.\n\nPensez à déclarer une non-conformité avec l'action corrective.`);
+  }
+});
+
+document.getElementById('temp-export').addEventListener('click', () => exporterJSON(
+  { releves: lireDonnees(CLE_TEMP), equipements: lireDonnees(CLE_EF) },
+  `Temperatures_export_${isoLocal()}.json`
+));
+document.getElementById('temp-import').addEventListener('click', () => importerJSON(d => {
+  let releves, equipements;
+  if (Array.isArray(d)) { releves = d; equipements = lireDonnees(CLE_EF); }
+  else if (d && Array.isArray(d.releves)) { releves = d.releves; equipements = Array.isArray(d.equipements) ? d.equipements : lireDonnees(CLE_EF); }
+  else { alert('❌ Format invalide — attendu une sauvegarde de relevés.'); return; }
+  ecrireDonnees(CLE_TEMP, releves); ecrireDonnees(CLE_EF, equipements);
+  afficherEquipementsFroid(); afficherTemperatures(); majTableauBord(); majAujourdHui();
+  alert(`✅ ${releves.length} relevé(s) et ${equipements.length} équipement(s) importé(s).`);
+}));
+document.getElementById('temp-imprimer').addEventListener('click', () => window.print());
+
+// Pré-remplir date/heure actuelles
+function rafraichirDateHeureReleve() {
+  document.getElementById('temp-date').value = isoLocal();
+  document.getElementById('temp-heure').value = heureLocale();
+}
+rafraichirDateHeureReleve();
+document.querySelector('[data-onglet="temperatures"]').addEventListener('click', () => { rafraichirDateHeureReleve(); majSelectEquipements(); });
+
+// ===================== PLAN DE NETTOYAGE =====================
+const CLE_NET = 'haccp_nettoyage';
+const CLE_NET_ZONES = 'haccp_nettoyage_zones'; // zones / points personnalisés ajoutés par l'utilisateur
+const JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const ZONES_NET_DEFAUT = ['Four Rational','Sauteuse Vario','Plonge / Lave-vaisselle','Chambres froides','Plans de travail','Sols cuisine','Hottes / VMC','Sanitaires','Réserve / Stockage','Autre'];
+
+function remplirSelectZonesNettoyage() {
+  const sel = document.getElementById('net-zone');
+  const perso = lireDonnees(CLE_NET_ZONES);
+  const valeurActuelle = sel.value;
+  let html = '<optgroup label="Zones standard">' + ZONES_NET_DEFAUT.map(z => `<option value="${z}">${z}</option>`).join('') + '</optgroup>';
+  if (perso.length) {
+    html += '<optgroup label="Mes zones ajoutées">' + perso.map(z => `<option value="${z}">${z}</option>`).join('') + '</optgroup>';
+  }
+  sel.innerHTML = html;
+  if (valeurActuelle) sel.value = valeurActuelle;
+
+  // Liste des zones personnalisées avec suppression
+  const cont = document.getElementById('net-zones-perso');
+  if (!perso.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML = '<div style="font-size:11px; color:var(--gris); margin-bottom:4px;">Mes zones ajoutées (cliquez sur ✕ pour retirer) :</div>' +
+    perso.map(z => `<span class="badge-allergene" style="background:var(--vert-clair); color:var(--vert); border-color:#C6E4D1;">${z} <span data-zone="${z}" data-action="suppr-zone" style="cursor:pointer; font-weight:900; margin-left:3px;">✕</span></span>`).join('');
+  cont.querySelectorAll('[data-action="suppr-zone"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let zones = lireDonnees(CLE_NET_ZONES);
+      zones = zones.filter(z => z !== b.dataset.zone);
+      ecrireDonnees(CLE_NET_ZONES, zones);
+      remplirSelectZonesNettoyage();
+    });
+  });
+}
+
+document.getElementById('net-zone-ajouter').addEventListener('click', () => {
+  const nom = prompt('Nom de la nouvelle zone / point à nettoyer :');
+  if (nom === null) return;
+  const propre = nom.trim();
+  if (!propre) return;
+  const zones = lireDonnees(CLE_NET_ZONES);
+  const existe = ZONES_NET_DEFAUT.concat(zones).some(z => z.toLowerCase() === propre.toLowerCase());
+  if (existe) { alert('Cette zone existe déjà dans la liste.'); return; }
+  zones.push(propre);
+  ecrireDonnees(CLE_NET_ZONES, zones);
+  remplirSelectZonesNettoyage();
+  document.getElementById('net-zone').value = propre;
+});
+
+function afficherNettoyage() {
+  const donnees = lireDonnees(CLE_NET);
+  const grille = document.getElementById('net-grille');
+  const vide = document.getElementById('net-vide');
+  grille.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+
+  JOURS.forEach(jour => {
+    const colonne = document.createElement('div');
+    colonne.className = 'jour-colonne';
+    const taches = donnees.filter(t => t.jour === jour);
+    colonne.innerHTML = `<h4>${jour}</h4>`;
+    if (taches.length === 0) {
+      colonne.innerHTML += `<div style="font-size:10px; color:var(--gris); text-align:center; padding-top:10px;">—</div>`;
+    }
+    taches.forEach(t => {
+      const div = document.createElement('div');
+      div.className = 'tache-item' + (t.fait ? ' fait' : '');
+      div.innerHTML = `
+        <span><input type="checkbox" data-id="${t.id}" data-action="cocher-net" ${t.fait ? 'checked' : ''}> ${t.tache} <em style="opacity:0.6">(${t.zone})</em></span>
+        <span class="supprimer" data-id="${t.id}" data-action="suppr-net">✕</span>
+      `;
+      colonne.appendChild(div);
+    });
+    grille.appendChild(colonne);
+  });
+
+  grille.querySelectorAll('[data-action="cocher-net"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const donnees = lireDonnees(CLE_NET);
+      const t = donnees.find(d => d.id === cb.dataset.id);
+      if (t) { t.fait = cb.checked; ecrireDonnees(CLE_NET, donnees); afficherNettoyage(); }
+    });
+  });
+  grille.querySelectorAll('[data-action="suppr-net"]').forEach(s => {
+    s.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_NET);
+      donnees = donnees.filter(d => d.id !== s.dataset.id);
+      ecrireDonnees(CLE_NET, donnees);
+      afficherNettoyage();
+    });
+  });
+}
+
+document.getElementById('net-ajouter').addEventListener('click', () => {
+  const tache = document.getElementById('net-tache').value.trim();
+  if (!tache) { alert('Merci de renseigner le nom de la tâche.'); return; }
+  const item = {
+    id: genererId(),
+    tache,
+    zone: document.getElementById('net-zone').value,
+    jour: document.getElementById('net-jour').value,
+    frequence: document.getElementById('net-frequence').value,
+    fait: false
+  };
+  const donnees = lireDonnees(CLE_NET);
+  donnees.push(item);
+  ecrireDonnees(CLE_NET, donnees);
+  document.getElementById('net-tache').value = '';
+  afficherNettoyage();
+});
+
+document.getElementById('net-reinit').addEventListener('click', () => {
+  if (!confirm('Décocher toutes les tâches pour démarrer une nouvelle semaine ?')) return;
+  const donnees = lireDonnees(CLE_NET);
+  donnees.forEach(t => t.fait = false);
+  ecrireDonnees(CLE_NET, donnees);
+  afficherNettoyage();
+});
+
+document.getElementById('net-export').addEventListener('click', () => exporterJSON(
+  { taches: lireDonnees(CLE_NET), zones: lireDonnees(CLE_NET_ZONES) },
+  `Nettoyage_export_${isoLocal()}.json`
+));
+document.getElementById('net-import').addEventListener('click', () => importerJSON(d => {
+  let taches, zones;
+  if (Array.isArray(d)) {
+    // Ancien format : tableau de tâches uniquement
+    taches = d; zones = lireDonnees(CLE_NET_ZONES);
+  } else if (d && Array.isArray(d.taches)) {
+    // Nouveau format : { taches, zones }
+    taches = d.taches; zones = Array.isArray(d.zones) ? d.zones : [];
+  } else {
+    alert('❌ Format invalide — attendu une sauvegarde de nettoyage.'); return;
+  }
+  ecrireDonnees(CLE_NET, taches);
+  ecrireDonnees(CLE_NET_ZONES, zones);
+  remplirSelectZonesNettoyage();
+  afficherNettoyage();
+  alert(`✅ ${taches.length} tâche(s) et ${zones.length} zone(s) personnalisée(s) importée(s).`);
+}));
+document.getElementById('net-imprimer').addEventListener('click', () => window.print());
+
+// ===================== FRITEUSES =====================
+const CLE_FRIT = 'haccp_friteuses';       // liste des friteuses { id, nom, huile, dateHuile }
+const CLE_FRIT_HIST = 'haccp_friteuses_historique'; // { id, friteuseId, action, date, resultat, personne }
+
+const LIBELLES_ACTION = { controle: '🔍 Contrôle visuel / TPM', filtration: '🧴 Filtration', vidange: '🔄 Vidange complète' };
+
+function joursDepuis(dateIso) {
+  const aujourdhui = new Date(); aujourdhui.setHours(0,0,0,0);
+  const d = new Date(dateIso + "T00:00:00");
+  return Math.floor((aujourdhui - d) / (1000*60*60*24));
+}
+
+function statutHuile(friteuse) {
+  // Cherche la dernière vidange dans l'historique, sinon utilise la date de mise en place
+  const hist = lireDonnees(CLE_FRIT_HIST).filter(h => h.friteuseId === friteuse.id && h.action === 'vidange');
+  let dateRef = friteuse.dateHuile;
+  if (hist.length) {
+    hist.sort((a,b) => new Date(b.date) - new Date(a.date));
+    dateRef = hist[0].date;
+  }
+  if (!dateRef) return { texte: 'Date inconnue', classe: 'attention', dateRef, jours: null };
+  const j = joursDepuis(dateRef);
+  if (j >= 7) return { texte: `Huile en place depuis ${j} jours — vidange recommandée`, classe: 'urgent', dateRef, jours: j };
+  if (j >= 4) return { texte: `Huile en place depuis ${j} jours — à surveiller`, classe: 'attention', dateRef, jours: j };
+  return { texte: `Huile en place depuis ${j} jour(s) — OK`, classe: 'ok', dateRef, jours: j };
+}
+
+function remplirSelectFriteuses() {
+  const sel = document.getElementById('frit-cible');
+  const friteuses = lireDonnees(CLE_FRIT);
+  sel.innerHTML = friteuses.map(f => `<option value="${f.id}">${f.nom}</option>`).join('') || '<option value="">— Aucune friteuse —</option>';
+}
+
+function afficherFriteuses() {
+  const friteuses = lireDonnees(CLE_FRIT);
+  const conteneur = document.getElementById('frit-liste');
+  const vide = document.getElementById('frit-vide');
+  conteneur.innerHTML = '';
+  vide.style.display = friteuses.length === 0 ? 'block' : 'none';
+
+  friteuses.forEach(f => {
+    const s = statutHuile(f);
+    const carte = document.createElement('div');
+    carte.className = 'friteuse-carte';
+    carte.innerHTML = `
+      <div class="infos">
+        <h4>🍟 ${f.nom}</h4>
+        <p>Huile : <span class="valeur">${f.huile}</span> · Mise en place initiale : <span class="valeur">${formaterDate(f.dateHuile)}</span></p>
+        <p style="margin-top:4px;"><span class="statut ${s.classe}">${s.texte}</span></p>
+      </div>
+      <button class="btn btn-danger" data-id="${f.id}" data-action="suppr-frit">Retirer cette friteuse</button>
+    `;
+    conteneur.appendChild(carte);
+  });
+
+  conteneur.querySelectorAll('[data-action="suppr-frit"]').forEach(b => {
+    b.addEventListener('click', () => {
+      if (!confirm('Retirer cette friteuse et son historique de contrôle ?')) return;
+      let friteuses = lireDonnees(CLE_FRIT);
+      friteuses = friteuses.filter(f => f.id !== b.dataset.id);
+      ecrireDonnees(CLE_FRIT, friteuses);
+      let hist = lireDonnees(CLE_FRIT_HIST);
+      hist = hist.filter(h => h.friteuseId !== b.dataset.id);
+      ecrireDonnees(CLE_FRIT_HIST, hist);
+      remplirSelectFriteuses(); afficherFriteuses(); afficherHistoriqueFriteuses(); majTableauBord();
+    });
+  });
+
+  remplirSelectFriteuses();
+}
+
+function afficherHistoriqueFriteuses() {
+  const hist = lireDonnees(CLE_FRIT_HIST).sort((a,b) => new Date(b.date) - new Date(a.date));
+  const friteuses = lireDonnees(CLE_FRIT);
+  const corps = document.getElementById('frit-historique');
+  const vide = document.getElementById('frit-hist-vide');
+  corps.innerHTML = '';
+  vide.style.display = hist.length === 0 ? 'block' : 'none';
+
+  hist.forEach(h => {
+    const friteuse = friteuses.find(f => f.id === h.friteuseId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formaterDate(h.date)}</td>
+      <td>${friteuse ? friteuse.nom : '— (retirée)'}</td>
+      <td>${LIBELLES_ACTION[h.action] || h.action}</td>
+      <td>${h.resultat || '—'}</td>
+      <td>${h.personne || '—'}</td>
+      <td><button class="btn btn-danger" data-id="${h.id}" data-action="suppr-frit-hist">Supprimer</button></td>
+    `;
+    corps.appendChild(tr);
+  });
+
+  corps.querySelectorAll('[data-action="suppr-frit-hist"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let hist = lireDonnees(CLE_FRIT_HIST);
+      hist = hist.filter(h => h.id !== b.dataset.id);
+      ecrireDonnees(CLE_FRIT_HIST, hist);
+      afficherHistoriqueFriteuses(); afficherFriteuses(); majTableauBord();
+    });
+  });
+}
+
+document.getElementById('frit-ajouter').addEventListener('click', () => {
+  const nom = document.getElementById('frit-nom').value.trim();
+  const dateHuile = document.getElementById('frit-date-huile').value;
+  if (!nom || !dateHuile) { alert('Merci de renseigner au minimum le nom de la friteuse et la date de mise en place de l\'huile.'); return; }
+  const item = { id: genererId(), nom, huile: document.getElementById('frit-huile').value, dateHuile };
+  const friteuses = lireDonnees(CLE_FRIT);
+  friteuses.push(item);
+  ecrireDonnees(CLE_FRIT, friteuses);
+  document.getElementById('frit-nom').value = '';
+  document.getElementById('frit-date-huile').value = '';
+  afficherFriteuses(); majTableauBord();
+});
+
+document.getElementById('frit-enregistrer').addEventListener('click', () => {
+  const friteuseId = document.getElementById('frit-cible').value;
+  const date = document.getElementById('frit-date-action').value;
+  if (!friteuseId) { alert('Merci d\'ajouter au moins une friteuse avant d\'enregistrer un contrôle.'); return; }
+  if (!date) { alert('Merci de renseigner la date du contrôle.'); return; }
+  const entree = {
+    id: genererId(),
+    friteuseId,
+    action: document.getElementById('frit-action').value,
+    date,
+    resultat: document.getElementById('frit-resultat').value.trim(),
+    personne: document.getElementById('frit-personne').value.trim()
+  };
+  const hist = lireDonnees(CLE_FRIT_HIST);
+  hist.push(entree);
+  ecrireDonnees(CLE_FRIT_HIST, hist);
+  document.getElementById('frit-resultat').value = '';
+  document.getElementById('frit-personne').value = '';
+  afficherHistoriqueFriteuses(); afficherFriteuses(); majTableauBord();
+});
+
+document.getElementById('frit-export').addEventListener('click', () => {
+  exporterJSON({ friteuses: lireDonnees(CLE_FRIT), historique: lireDonnees(CLE_FRIT_HIST) }, `Friteuses_export_${isoLocal()}.json`);
+});
+document.getElementById('frit-import').addEventListener('click', () => importerJSON(d => {
+  if (!d.friteuses || !d.historique) { alert('❌ Format invalide — attendu un objet avec "friteuses" et "historique".'); return; }
+  ecrireDonnees(CLE_FRIT, d.friteuses); ecrireDonnees(CLE_FRIT_HIST, d.historique);
+  afficherFriteuses(); afficherHistoriqueFriteuses(); majTableauBord();
+  alert(`✅ ${d.friteuses.length} friteuse(s) et ${d.historique.length} contrôle(s) importés.`);
+}));
+document.getElementById('frit-imprimer').addEventListener('click', () => window.print());
+document.getElementById('frit-date-action').value = isoLocal();
+
+// ===================== REFROIDISSEMENT =====================
+const CLE_REFROID = 'haccp_refroidissement';
+
+function calculerDureeMinutes(heureDebut, heureFin) {
+  if (!heureDebut || !heureFin) return null;
+  const [h1, m1] = heureDebut.split(':').map(Number);
+  const [h2, m2] = heureFin.split(':').map(Number);
+  let mins = (h2*60+m2) - (h1*60+m1);
+  if (mins < 0) mins += 24*60; // passage de minuit
+  return mins;
+}
+function formaterDuree(mins) {
+  if (mins === null) return '—';
+  const h = Math.floor(mins/60), m = mins % 60;
+  return h > 0 ? `${h} h ${m.toString().padStart(2,'0')}` : `${m} min`;
+}
+function statutRefroidissement(item) {
+  const mins = calculerDureeMinutes(item.debutHeure, item.finHeure);
+  if (mins === null) return { texte: 'Données incomplètes', classe: 'attention' };
+  const respecteDelai = mins <= 120;
+  const respecteTemp = parseFloat(item.finTemp) <= 10;
+  if (respecteDelai && respecteTemp) return { texte: 'Conforme', classe: 'ok' };
+  return { texte: 'Non conforme — risque', classe: 'urgent' };
+}
+
+function afficherRefroidissement() {
+  const donnees = lireDonnees(CLE_REFROID).sort((a,b) => new Date(b.date) - new Date(a.date));
+  const corps = document.getElementById('refroid-tableau');
+  const vide = document.getElementById('refroid-vide');
+  corps.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+  donnees.forEach(item => {
+    const mins = calculerDureeMinutes(item.debutHeure, item.finHeure);
+    const s = statutRefroidissement(item);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formaterDate(item.date)}</td>
+      <td><strong>${item.produit}</strong></td>
+      <td>${item.debutHeure || '—'} · ${item.debutTemp}°C</td>
+      <td>${item.finHeure || '—'} · ${item.finTemp}°C</td>
+      <td>${formaterDuree(mins)}</td>
+      <td><span class="statut ${s.classe}">${s.texte}</span></td>
+      <td>${item.personne || '—'}</td>
+      <td><button class="btn btn-danger" data-id="${item.id}" data-action="suppr-refroid">Supprimer</button></td>
+    `;
+    corps.appendChild(tr);
+  });
+  corps.querySelectorAll('[data-action="suppr-refroid"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_REFROID);
+      donnees = donnees.filter(d => d.id !== b.dataset.id);
+      ecrireDonnees(CLE_REFROID, donnees);
+      afficherRefroidissement(); majTableauBord();
+    });
+  });
+}
+
+document.getElementById('refroid-ajouter').addEventListener('click', () => {
+  const produit = document.getElementById('refroid-produit').value.trim();
+  const date = document.getElementById('refroid-date').value;
+  if (!produit || !date) { alert('Merci de renseigner au minimum le produit et la date.'); return; }
+  const item = {
+    id: genererId(), produit, date,
+    debutHeure: document.getElementById('refroid-debut-heure').value,
+    debutTemp: document.getElementById('refroid-debut-temp').value,
+    finHeure: document.getElementById('refroid-fin-heure').value,
+    finTemp: document.getElementById('refroid-fin-temp').value,
+    personne: document.getElementById('refroid-personne').value.trim()
+  };
+  const donnees = lireDonnees(CLE_REFROID);
+  donnees.push(item);
+  ecrireDonnees(CLE_REFROID, donnees);
+  ['refroid-produit','refroid-debut-heure','refroid-debut-temp','refroid-fin-heure','refroid-fin-temp','refroid-personne'].forEach(id => document.getElementById(id).value = '');
+  afficherRefroidissement(); majTableauBord();
+});
+document.getElementById('refroid-export').addEventListener('click', () => exporterJSON(lireDonnees(CLE_REFROID), `Refroidissement_export_${isoLocal()}.json`));
+document.getElementById('refroid-import').addEventListener('click', () => importerJSON(d => {
+  if (!Array.isArray(d)) { alert('❌ Format invalide — attendu un tableau de cycles.'); return; }
+  ecrireDonnees(CLE_REFROID, d); afficherRefroidissement(); majTableauBord();
+  alert(`✅ ${d.length} cycle(s) importé(s).`);
+}));
+document.getElementById('refroid-imprimer').addEventListener('click', () => window.print());
+document.getElementById('refroid-date').value = isoLocal();
+
+// ===================== ALLERGENES (déclaration utilisée aussi pour les étiquettes) =====================
+const CLE_ALLERG = 'haccp_allergenes';
+const LISTE_ALLERGENES = [
+  'Gluten', 'Crustacés', 'Œufs', 'Poissons', 'Arachides', 'Soja', 'Lait',
+  'Fruits à coque', 'Céleri', 'Moutarde', 'Sésame', 'Sulfites', 'Lupin', 'Mollusques'
+];
+
+function construireGrilleAllergenes() {
+  const grille = document.getElementById('allerg-grille');
+  grille.innerHTML = LISTE_ALLERGENES.map((a, i) => `
+    <label class="allergene-case" id="allerg-case-${i}">
+      <input type="checkbox" value="${a}" data-action="case-allergene" id="allerg-cb-${i}"> ${a}
+    </label>
+  `).join('');
+  grille.querySelectorAll('[data-action="case-allergene"]').forEach((cb, i) => {
+    cb.addEventListener('change', () => {
+      document.getElementById(`allerg-case-${i}`).classList.toggle('coche', cb.checked);
+    });
+  });
+}
+
+function recupererAllergenesCoches() {
+  return Array.from(document.querySelectorAll('#allerg-grille input:checked')).map(cb => cb.value);
+}
+
+function afficherAllergenes() {
+  const donnees = lireDonnees(CLE_ALLERG);
+  const corps = document.getElementById('allerg-tableau');
+  const vide = document.getElementById('allerg-vide');
+  corps.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+  donnees.forEach(item => {
+    const tr = document.createElement('tr');
+    const badges = item.allergenes.length
+      ? item.allergenes.map(a => `<span class="badge-allergene">${a}</span>`).join('')
+      : `<span class="pas-allergene">Aucun allergène déclaré</span>`;
+    tr.innerHTML = `
+      <td><strong>${item.plat}</strong></td>
+      <td>${badges}</td>
+      <td><button class="btn btn-danger" data-id="${item.id}" data-action="suppr-allerg">Supprimer</button></td>
+    `;
+    corps.appendChild(tr);
+  });
+  corps.querySelectorAll('[data-action="suppr-allerg"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_ALLERG);
+      donnees = donnees.filter(d => d.id !== b.dataset.id);
+      ecrireDonnees(CLE_ALLERG, donnees);
+      afficherAllergenes();
+    });
+  });
+}
+
+construireGrilleAllergenes();
+document.getElementById('allerg-ajouter').addEventListener('click', () => {
+  const plat = document.getElementById('allerg-plat').value.trim();
+  if (!plat) { alert('Merci de renseigner le nom du plat.'); return; }
+  const item = { id: genererId(), plat, allergenes: recupererAllergenesCoches() };
+  const donnees = lireDonnees(CLE_ALLERG);
+  donnees.push(item);
+  ecrireDonnees(CLE_ALLERG, donnees);
+  document.getElementById('allerg-plat').value = '';
+  document.querySelectorAll('#allerg-grille input').forEach((cb,i) => { cb.checked = false; document.getElementById(`allerg-case-${i}`).classList.remove('coche'); });
+  afficherAllergenes();
+});
+document.getElementById('allerg-export').addEventListener('click', () => exporterJSON(lireDonnees(CLE_ALLERG), `Allergenes_export_${isoLocal()}.json`));
+document.getElementById('allerg-import').addEventListener('click', () => importerJSON(d => {
+  if (!Array.isArray(d)) { alert('❌ Format invalide — attendu un tableau de plats.'); return; }
+  ecrireDonnees(CLE_ALLERG, d); afficherAllergenes();
+  alert(`✅ ${d.length} plat(s) importé(s).`);
+}));
+document.getElementById('allerg-imprimer').addEventListener('click', () => window.print());
+
+// ===================== ETIQUETTES DLC IMPRIMABLES =====================
+function afficherEtiquettes() {
+  const produits = lireDonnees(CLE_DLC).sort((a,b) => new Date(a.dlc) - new Date(b.dlc));
+  const grille = document.getElementById('etiq-grille');
+  const vide = document.getElementById('etiq-vide');
+  grille.innerHTML = '';
+  vide.style.display = produits.length === 0 ? 'block' : 'none';
+
+  produits.forEach(p => {
+    const carte = document.createElement('div');
+    carte.className = 'etiquette';
+    carte.innerHTML = `
+      <label><input type="checkbox" class="etiq-case" data-id="${p.id}" checked> Sélectionner pour impression</label>
+      <div class="etiq-impression" data-id="${p.id}">
+        <div class="nom">${p.nom}</div>
+        <div class="ligne"><strong>Catégorie :</strong> ${p.categorie}</div>
+        <div class="ligne"><strong>Réception / production :</strong> ${formaterDate(p.reception)}</div>
+        <div class="ligne"><strong>Lieu de stockage :</strong> ${p.lieu}</div>
+        <div class="dlc-zone">À CONSOMMER AVANT LE ${formaterDate(p.dlc)}</div>
+      </div>
+    `;
+    grille.appendChild(carte);
+  });
+}
+
+// ---- Étiquette préparation maison ----
+// Pré-remplir date et heure du jour
+document.getElementById('etiq-prep-date-prod').value = isoLocal();
+document.getElementById('etiq-prep-heure-prod').value = new Date().toTimeString().slice(0,5);
+
+function formaterDateLong(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+function genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, allergenes) {
+  const joursRestantsVal = joursRestants(dlc);
+  const urgence = joursRestantsVal <= 2 ? '#B71C1C' : (joursRestantsVal <= 5 ? '#B8860B' : '#1B5E20');
+  return `
+    <div class="etiq-prep">
+      <div class="ep-restaurant">Restaurant Le Modulo · Préparation cuisine</div>
+      <div class="ep-nom">${nom}</div>
+      <div class="ep-ligne"><strong>Produit le :</strong> ${formaterDate(dateProd)} à ${heureProd || '—'}</div>
+      <div class="ep-ligne"><strong>Stockage :</strong> ${lieu}</div>
+      <div class="ep-dlc" style="background:${urgence};">
+        <div class="ep-dlc-label">À consommer avant le</div>
+        <div class="ep-dlc-date">${formaterDate(dlc)}</div>
+        <div style="font-size:9px; opacity:0.85; margin-top:2px;">${formaterDateLong(dlc)}</div>
+      </div>
+      ${allergenes ? `<div class="ep-allerg">⚠️ Allergènes : ${allergenes}</div>` : ''}
+      <div class="ep-par">${par ? 'Réalisé par : ' + par : ''} · ${new Date().toLocaleDateString('fr-FR')}</div>
+    </div>
+  `;
+}
+
+document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
+  const nom = document.getElementById('etiq-prep-nom').value.trim();
+  const dlc = document.getElementById('etiq-prep-dlc').value;
+  if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom de la préparation et la date limite de consommation.'); return; }
+  const dateProd = document.getElementById('etiq-prep-date-prod').value;
+  const heureProd = document.getElementById('etiq-prep-heure-prod').value;
+  const lieu = document.getElementById('etiq-prep-lieu').value;
+  const par = document.getElementById('etiq-prep-par').value.trim();
+  const allergenes = document.getElementById('etiq-prep-allergenes').value.trim();
+  const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
+  let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
+  for (let i = 0; i < qte; i++) {
+    html += genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, allergenes);
+  }
+  html += '</div>';
+  document.getElementById('etiq-prep-preview').innerHTML = html;
+  document.getElementById('etiq-prep-zone').style.display = 'block';
+  document.getElementById('etiq-prep-zone').scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+document.getElementById('etiq-prep-imprimer-btn').addEventListener('click', () => {
+  // Masquer tout sauf la zone d'aperçu pour l'impression
+  document.querySelectorAll('main > section, header, nav, footer').forEach(el => el.style.display = 'none');
+  const zone = document.getElementById('etiq-prep-preview');
+  zone.style.cssText = 'position:fixed;inset:0;background:white;z-index:9999;padding:20px;overflow:auto;';
+  window.print();
+  setTimeout(() => {
+    document.querySelectorAll('main > section, header, nav, footer').forEach(el => el.style.display = '');
+    zone.style.cssText = '';
+    document.querySelector('.onglet.active')?.style && (document.querySelector('.onglet.active').style.display = 'block');
+  }, 500);
+});
+
+document.getElementById('etiq-prep-fermer').addEventListener('click', () => {
+  document.getElementById('etiq-prep-zone').style.display = 'none';
+});
+
+document.getElementById('etiq-prep-sauver').addEventListener('click', () => {
+  const nom = document.getElementById('etiq-prep-nom').value.trim();
+  const dlc = document.getElementById('etiq-prep-dlc').value;
+  if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom et la DLC avant de sauvegarder.'); return; }
+  const item = {
+    id: genererId(),
+    nom,
+    categorie: 'Préparation maison',
+    reception: document.getElementById('etiq-prep-date-prod').value,
+    dlc,
+    lieu: document.getElementById('etiq-prep-lieu').value,
+    photo: null
+  };
+  const donnees = lireDonnees(CLE_DLC);
+  donnees.push(item);
+  ecrireDonnees(CLE_DLC, donnees);
+  afficherDLC(); majTableauBord(); afficherEtiquettes();
+  alert(`✅ "${nom}" ajouté dans DLC & Stocks avec DLC au ${formaterDate(dlc)}.`);
+});
+
+document.getElementById('etiq-tout-cocher').addEventListener('click', () => document.querySelectorAll('.etiq-case').forEach(c => c.checked = true));
+document.getElementById('etiq-tout-decocher').addEventListener('click', () => document.querySelectorAll('.etiq-case').forEach(c => c.checked = false));
+document.getElementById('etiq-imprimer').addEventListener('click', () => {
+  const idsCoches = Array.from(document.querySelectorAll('.etiq-case:checked')).map(c => c.dataset.id);
+  document.querySelectorAll('.etiquette').forEach(carte => {
+    const idImpression = carte.querySelector('.etiq-impression').dataset.id;
+    carte.style.display = idsCoches.includes(idImpression) ? '' : 'none';
+  });
+  window.print();
+  setTimeout(() => document.querySelectorAll('.etiquette').forEach(c => c.style.display = ''), 500);
+});
+
+// ===================== NON-CONFORMITES =====================
+const CLE_NC = 'haccp_nonconformites';
+
+function afficherNonConformites() {
+  const donnees = lireDonnees(CLE_NC).sort((a,b) => new Date(b.date) - new Date(a.date));
+  const conteneur = document.getElementById('nc-liste');
+  const vide = document.getElementById('nc-vide');
+  conteneur.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+
+  donnees.forEach(item => {
+    const carte = document.createElement('div');
+    carte.className = 'nc-carte' + (item.resolue ? ' resolue' : '');
+    carte.innerHTML = `
+      <h4>${item.resolue ? '✅' : '🔴'} ${item.type} — ${formaterDate(item.date)}</h4>
+      <p><strong>Constat :</strong> ${item.description}</p>
+      <p><strong>Action corrective :</strong> ${item.action || '—'}</p>
+      <div class="meta">Constaté par : ${item.personne || '—'} ${item.resolue ? '· Marquée comme résolue' : ''}</div>
+      <div class="actions">
+        <button class="btn ${item.resolue ? 'btn-secondaire' : 'btn-principal'} btn-petit" data-id="${item.id}" data-action="toggle-nc">${item.resolue ? 'Rouvrir' : 'Marquer comme résolue'}</button>
+        <button class="btn btn-danger" data-id="${item.id}" data-action="suppr-nc">Supprimer</button>
+      </div>
+    `;
+    conteneur.appendChild(carte);
+  });
+
+  conteneur.querySelectorAll('[data-action="toggle-nc"]').forEach(b => {
+    b.addEventListener('click', () => {
+      const donnees = lireDonnees(CLE_NC);
+      const item = donnees.find(d => d.id === b.dataset.id);
+      if (item) { item.resolue = !item.resolue; ecrireDonnees(CLE_NC, donnees); afficherNonConformites(); majTableauBord(); }
+    });
+  });
+  conteneur.querySelectorAll('[data-action="suppr-nc"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_NC);
+      donnees = donnees.filter(d => d.id !== b.dataset.id);
+      ecrireDonnees(CLE_NC, donnees);
+      afficherNonConformites(); majTableauBord();
+    });
+  });
+}
+
+document.getElementById('nc-ajouter').addEventListener('click', () => {
+  const description = document.getElementById('nc-description').value.trim();
+  const date = document.getElementById('nc-date').value;
+  if (!description || !date) { alert('Merci de renseigner au minimum la description et la date.'); return; }
+  const item = {
+    id: genererId(),
+    type: document.getElementById('nc-type').value,
+    date,
+    personne: document.getElementById('nc-personne').value.trim(),
+    description,
+    action: document.getElementById('nc-action').value.trim(),
+    resolue: false
+  };
+  const donnees = lireDonnees(CLE_NC);
+  donnees.push(item);
+  ecrireDonnees(CLE_NC, donnees);
+  ['nc-personne','nc-description','nc-action'].forEach(id => document.getElementById(id).value = '');
+  afficherNonConformites(); majTableauBord();
+});
+document.getElementById('nc-export').addEventListener('click', () => exporterJSON(lireDonnees(CLE_NC), `NonConformites_export_${isoLocal()}.json`));
+document.getElementById('nc-import').addEventListener('click', () => importerJSON(d => {
+  if (!Array.isArray(d)) { alert('❌ Format invalide — attendu un tableau de non-conformités.'); return; }
+  ecrireDonnees(CLE_NC, d); afficherNonConformites(); majTableauBord();
+  alert(`✅ ${d.length} non-conformité(s) importée(s).`);
+}));
+document.getElementById('nc-imprimer').addEventListener('click', () => window.print());
+document.getElementById('nc-date').value = isoLocal();
+
+// ===================== RECEPTION MARCHANDISES =====================
+const CLE_RECEP = 'haccp_reception';
+
+function statutReception(item) {
+  const tempOk = parseFloat(item.temperature) <= 4;
+  const ok = tempOk && item.emballage === 'Conforme' && item.bon === 'Conforme';
+  if (ok) return { texte: 'Acceptée', classe: 'ok' };
+  if (item.emballage === 'Non conforme (refusé)') return { texte: 'Refusée', classe: 'urgent' };
+  return { texte: 'Acceptée avec réserve', classe: 'attention' };
+}
+
+function afficherReceptions() {
+  const donnees = lireDonnees(CLE_RECEP).sort((a,b) => new Date(b.date+'T'+(b.heure||'00:00')) - new Date(a.date+'T'+(a.heure||'00:00')));
+  const corps = document.getElementById('recep-tableau');
+  const vide = document.getElementById('recep-vide');
+  corps.innerHTML = '';
+  vide.style.display = donnees.length === 0 ? 'block' : 'none';
+  donnees.forEach(item => {
+    const s = statutReception(item);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formaterDate(item.date)}</td>
+      <td>${item.heure || '—'}</td>
+      <td><strong>${item.fournisseur}</strong></td>
+      <td>${item.temperature} °C</td>
+      <td>${item.emballage}</td>
+      <td>${item.bon}</td>
+      <td>${item.personne || '—'}</td>
+      <td><span class="statut ${s.classe}">${s.texte}</span></td>
+      <td><button class="btn btn-danger" data-id="${item.id}" data-action="suppr-recep">Supprimer</button></td>
+    `;
+    corps.appendChild(tr);
+  });
+  corps.querySelectorAll('[data-action="suppr-recep"]').forEach(b => {
+    b.addEventListener('click', () => {
+      let donnees = lireDonnees(CLE_RECEP);
+      donnees = donnees.filter(d => d.id !== b.dataset.id);
+      ecrireDonnees(CLE_RECEP, donnees);
+      afficherReceptions(); majTableauBord();
+    });
+  });
+}
+
+document.getElementById('recep-ajouter').addEventListener('click', () => {
+  const fournisseur = document.getElementById('recep-fournisseur').value.trim();
+  const date = document.getElementById('recep-date').value;
+  const temperature = document.getElementById('recep-temperature').value;
+  if (!fournisseur || !date || temperature === '') { alert('Merci de renseigner au minimum le fournisseur, la date et la température.'); return; }
+  const item = {
+    id: genererId(), fournisseur, date,
+    heure: document.getElementById('recep-heure').value,
+    temperature,
+    emballage: document.getElementById('recep-emballage').value,
+    bon: document.getElementById('recep-bon').value,
+    personne: document.getElementById('recep-personne').value.trim(),
+    remarque: document.getElementById('recep-remarque').value.trim()
+  };
+  const donnees = lireDonnees(CLE_RECEP);
+  donnees.push(item);
+  ecrireDonnees(CLE_RECEP, donnees);
+  ['recep-fournisseur','recep-temperature','recep-personne','recep-remarque'].forEach(id => document.getElementById(id).value = '');
+  afficherReceptions(); majTableauBord();
+});
+document.getElementById('recep-export').addEventListener('click', () => exporterJSON(lireDonnees(CLE_RECEP), `Receptions_export_${isoLocal()}.json`));
+document.getElementById('recep-import').addEventListener('click', () => importerJSON(d => {
+  if (!Array.isArray(d)) { alert('❌ Format invalide — attendu un tableau de réceptions.'); return; }
+  ecrireDonnees(CLE_RECEP, d); afficherReceptions(); majTableauBord();
+  alert(`✅ ${d.length} réception(s) importée(s).`);
+}));
+document.getElementById('recep-imprimer').addEventListener('click', () => window.print());
+document.getElementById('recep-date').value = isoLocal();
+document.getElementById('recep-heure').value = new Date().toTimeString().slice(0,5);
+
+// ===================== TABLEAU DE BORD =====================
+function majTableauBord() {
+  const dlc = lireDonnees(CLE_DLC);
+  const temps = lireDonnees(CLE_TEMP);
+  const net = lireDonnees(CLE_NET);
+  const friteuses = lireDonnees(CLE_FRIT);
+  const refroidissements = lireDonnees(CLE_REFROID);
+  const nonConformites = lireDonnees(CLE_NC);
+
+  const dlcUrgents = dlc.filter(d => joursRestants(d.dlc) <= 0).length;
+  const dlcAttention = dlc.filter(d => { const j = joursRestants(d.dlc); return j > 0 && j <= 2; }).length;
+  const tempsHorsNorme = temps.filter(t => statutTemperature(t.equipement, t.valeur).classe === 'urgent').length;
+  const tachesRestantes = net.filter(t => !t.fait).length;
+  const friteusesAVidanger = friteuses.filter(f => statutHuile(f).classe === 'urgent').length;
+  const refroidNonConformes = refroidissements.filter(r => statutRefroidissement(r).classe === 'urgent').length;
+  const ncOuvertes = nonConformites.filter(n => !n.resolue).length;
+
+  const grille = document.getElementById('stats-grid');
+  grille.innerHTML = `
+    <div class="stat-carte ${dlcUrgents > 0 ? 'alerte' : ''}">
+      <div class="nombre">${dlcUrgents}</div><div class="label">DLC dépassée(s)</div>
+    </div>
+    <div class="stat-carte ${dlcAttention > 0 ? 'attention' : ''}">
+      <div class="nombre">${dlcAttention}</div><div class="label">DLC proche(s) (≤ 2j)</div>
+    </div>
+    <div class="stat-carte ${tempsHorsNorme > 0 ? 'alerte' : ''}">
+      <div class="nombre">${tempsHorsNorme}</div><div class="label">Relevés hors norme</div>
+    </div>
+    <div class="stat-carte">
+      <div class="nombre">${tachesRestantes}</div><div class="label">Tâches de nettoyage restantes</div>
+    </div>
+    <div class="stat-carte ${friteusesAVidanger > 0 ? 'alerte' : ''}">
+      <div class="nombre">${friteusesAVidanger}</div><div class="label">Friteuse(s) à vidanger</div>
+    </div>
+    <div class="stat-carte ${refroidNonConformes > 0 ? 'alerte' : ''}">
+      <div class="nombre">${refroidNonConformes}</div><div class="label">Refroidissement(s) non conforme(s)</div>
+    </div>
+    <div class="stat-carte ${ncOuvertes > 0 ? 'alerte' : ''}">
+      <div class="nombre">${ncOuvertes}</div><div class="label">Non-conformité(s) ouverte(s)</div>
+    </div>
+  `;
+
+  const alertes = document.getElementById('alertes-liste');
+  let html = '';
+  dlc.filter(d => joursRestants(d.dlc) <= 0).forEach(d => {
+    html += `<div style="padding:8px 0; border-bottom:1px solid var(--bordure); font-size:13px;">🔴 <strong>${d.nom}</strong> — DLC dépassée (${formaterDate(d.dlc)}), à retirer du stock immédiatement</div>`;
+  });
+  dlc.filter(d => { const j = joursRestants(d.dlc); return j > 0 && j <= 2; }).forEach(d => {
+    html += `<div style="padding:8px 0; border-bottom:1px solid var(--bordure); font-size:13px;">🟡 <strong>${d.nom}</strong> — DLC proche, à utiliser avant le ${formaterDate(d.dlc)}</div>`;
+  });
+  temps.filter(t => statutTemperature(t.equipement, t.valeur).classe === 'urgent').slice(0,5).forEach(t => {
+    html += `<div style="padding:8px 0; border-bottom:1px solid var(--bordure); font-size:13px;">🔴 <strong>${t.equipement}</strong> — relevé hors norme : ${t.valeur}°C le ${formaterDate(t.date)} à ${t.heure || '—'}</div>`;
+  });
+  friteuses.filter(f => statutHuile(f).classe === 'urgent').forEach(f => {
+    html += `<div style="padding:8px 0; border-bottom:1px solid var(--bordure); font-size:13px;">🔴 <strong>${f.nom}</strong> — ${statutHuile(f).texte}</div>`;
+  });
+  refroidissements.filter(r => statutRefroidissement(r).classe === 'urgent').slice(0,5).forEach(r => {
+    html += `<div style="padding:8px 0; border-bottom:1px solid var(--bordure); font-size:13px;">🔴 <strong>${r.produit}</strong> — refroidissement non conforme le ${formaterDate(r.date)} (risque sanitaire)</div>`;
+  });
+  nonConformites.filter(n => !n.resolue).slice(0,5).forEach(n => {
+    html += `<div style="padding:8px 0; border-bottom:1px solid var(--bordure); font-size:13px;">🟠 <strong>${n.type}</strong> — non-conformité ouverte du ${formaterDate(n.date)} : ${n.description}</div>`;
+  });
+  alertes.innerHTML = html || '<div class="vide">Aucune alerte — tout est en ordre ! ✓</div>';
+}
+
+// ===================== PRE-REMPLISSAGE DONNEES D'EXEMPLE =====================
+function prefillDonnees() {
+  const auj = isoLocal();
+  const dans3j = isoLocal(new Date(Date.now()+3*86400000));
+  const dans7j = isoLocal(new Date(Date.now()+7*86400000));
+  const dans14j = isoLocal(new Date(Date.now()+14*86400000));
+  const hier = isoLocal(new Date(Date.now()-86400000));
+
+  // DLC
+  if (lireDonnees(CLE_DLC).length === 0) {
+    ecrireDonnees(CLE_DLC, [
+      { id:genererId(), nom:'Filet de bœuf', categorie:'Viande', reception:hier, dlc:dans3j, lieu:'Chambre froide positive', photo:null },
+      { id:genererId(), nom:'Saumon frais entier', categorie:'Poisson', reception:auj, dlc:dans3j, lieu:'Chambre froide positive', photo:null },
+      { id:genererId(), nom:'Crème fraîche 35%', categorie:'Produit laitier', reception:hier, dlc:dans7j, lieu:'Réfrigérateur de service', photo:null },
+      { id:genererId(), nom:'Fond de veau lié (préparation maison)', categorie:'Préparation maison', reception:auj, dlc:dans3j, lieu:'Chambre froide positive', photo:null },
+      { id:genererId(), nom:'Farine T55', categorie:'Sec / Épicerie', reception:hier, dlc:dans14j, lieu:'Sec / Réserve', photo:null },
+    ]);
+  }
+
+  // Équipements froid
+  if (lireDonnees(CLE_EF).length === 0) {
+    ecrireDonnees(CLE_EF, [
+      { id:genererId(), nom:'Chambre froide positive', type:'Chambre froide positive', tempMin:0, tempMax:4, emplacement:'' },
+      { id:genererId(), nom:'Chambre froide négative', type:'Chambre froide négative', tempMin:-25, tempMax:-18, emplacement:'' },
+      { id:genererId(), nom:'Frigo de service', type:'Réfrigérateur de service', tempMin:0, tempMax:4, emplacement:'Passe' },
+    ]);
+  }
+
+  // Nettoyage
+  if (lireDonnees(CLE_NET).length === 0) {
+    const taches = [
+      { tache:'Nettoyage plans de travail', zone:'Plans de travail', jour:'Lundi', freq:'Quotidien' },
+      { tache:'Nettoyage plans de travail', zone:'Plans de travail', jour:'Mardi', freq:'Quotidien' },
+      { tache:'Nettoyage plans de travail', zone:'Plans de travail', jour:'Mercredi', freq:'Quotidien' },
+      { tache:'Nettoyage plans de travail', zone:'Plans de travail', jour:'Jeudi', freq:'Quotidien' },
+      { tache:'Nettoyage plans de travail', zone:'Plans de travail', jour:'Vendredi', freq:'Quotidien' },
+      { tache:'Nettoyage plans de travail', zone:'Plans de travail', jour:'Samedi', freq:'Quotidien' },
+      { tache:'Nettoyage sols cuisine', zone:'Sols cuisine', jour:'Lundi', freq:'Quotidien' },
+      { tache:'Nettoyage sols cuisine', zone:'Sols cuisine', jour:'Mardi', freq:'Quotidien' },
+      { tache:'Nettoyage sols cuisine', zone:'Sols cuisine', jour:'Mercredi', freq:'Quotidien' },
+      { tache:'Nettoyage sols cuisine', zone:'Sols cuisine', jour:'Jeudi', freq:'Quotidien' },
+      { tache:'Nettoyage sols cuisine', zone:'Sols cuisine', jour:'Vendredi', freq:'Quotidien' },
+      { tache:'Nettoyage sols cuisine', zone:'Sols cuisine', jour:'Samedi', freq:'Quotidien' },
+      { tache:'Nettoyage Four Rational', zone:'Four Rational', jour:'Lundi', freq:'Quotidien' },
+      { tache:'Nettoyage Four Rational', zone:'Four Rational', jour:'Mercredi', freq:'Quotidien' },
+      { tache:'Nettoyage Four Rational', zone:'Four Rational', jour:'Vendredi', freq:'Quotidien' },
+      { tache:'Nettoyage Sauteuse Vario', zone:'Sauteuse Vario', jour:'Mardi', freq:'Quotidien' },
+      { tache:'Nettoyage Sauteuse Vario', zone:'Sauteuse Vario', jour:'Jeudi', freq:'Quotidien' },
+      { tache:'Nettoyage Sauteuse Vario', zone:'Sauteuse Vario', jour:'Samedi', freq:'Quotidien' },
+      { tache:'Nettoyage Plonge / Lave-vaisselle', zone:'Plonge / Lave-vaisselle', jour:'Lundi', freq:'Quotidien' },
+      { tache:'Nettoyage Plonge / Lave-vaisselle', zone:'Plonge / Lave-vaisselle', jour:'Mercredi', freq:'Quotidien' },
+      { tache:'Nettoyage Plonge / Lave-vaisselle', zone:'Plonge / Lave-vaisselle', jour:'Vendredi', freq:'Quotidien' },
+      { tache:'Dégraissage hottes / VMC', zone:'Hottes / VMC', jour:'Lundi', freq:'Hebdomadaire' },
+      { tache:'Nettoyage chambres froides', zone:'Chambres froides', jour:'Mercredi', freq:'Hebdomadaire' },
+      { tache:'Nettoyage réserve / stockage sec', zone:'Réserve / Stockage', jour:'Vendredi', freq:'Hebdomadaire' },
+    ];
+    ecrireDonnees(CLE_NET, taches.map(t => ({ id:genererId(), tache:t.tache, zone:t.zone, jour:t.jour, frequence:t.freq, fait:false })));
+  }
+
+  // Friteuses
+  if (lireDonnees(CLE_FRIT).length === 0) {
+    ecrireDonnees(CLE_FRIT, [
+      { id:genererId(), nom:'Friteuse 1 — service chaud', huile:'Huile de tournesol', dateHuile:hier },
+    ]);
+  }
+
+  // Allergènes (2 plats d'exemple)
+  if (lireDonnees(CLE_ALLERG).length === 0) {
+    ecrireDonnees(CLE_ALLERG, [
+      { id:genererId(), plat:'Velouté de potimarron', allergenes:['Lait','Céleri'] },
+      { id:genererId(), plat:'Filet de bœuf sauce bordelaise', allergenes:['Sulfites','Céleri'] },
+    ]);
+  }
+
+  // Rafraîchir tout
+  afficherEquipementsFroid(); afficherDLC(); afficherNettoyage(); afficherFriteuses(); afficherHistoriqueFriteuses();
+  afficherAllergenes(); afficherEtiquettes(); majAujourdHui(); majTableauBord();
+  fermerGuide();
+  alert('✅ Données d\'exemple initialisées ! Vous pouvez maintenant explorer chaque onglet et les adapter à votre restaurant.');
+}
+
+// ===================== INITIALISATION =====================
+afficherDLC();
+afficherTemperatures();
+remplirSelectZonesNettoyage();
+afficherNettoyage();
+initialiserSelectMercuriale();
+afficherMercurialePerso();
+afficherEquipementsFroid();
+majAujourdHui();
+afficherFriteuses();
+afficherHistoriqueFriteuses();
+afficherRefroidissement();
+afficherAllergenes();
+afficherEtiquettes();
+afficherNonConformites();
+afficherReceptions();
+majTableauBord();
+
+// Rafraîchir les étiquettes et aujourd'hui à chaque ouverture
+document.querySelector('[data-onglet="etiquettes"]').addEventListener('click', afficherEtiquettes);
+document.querySelector('[data-onglet="aujourd-hui"]').addEventListener('click', majAujourdHui);
+
+// Mémoire : boutons + compression automatique des anciennes photos
+document.getElementById('btn-alleger').addEventListener('click', async () => {
+  const n = await compresserPhotosExistantes(600, 0.5, 60000);
+  afficherDLC(); majJaugeMemoire();
+  alert(n ? `✅ ${n} photo(s) allégée(s).` : 'Les photos sont déjà allégées.');
+});
+document.getElementById('btn-suppr-photos-perimes').addEventListener('click', () => {
+  const donnees = lireDonnees(CLE_DLC);
+  let n = 0;
+  donnees.forEach(d => { if (d.photo && joursRestants(d.dlc) < 0) { d.photo = null; n++; } });
+  localStorage.setItem(CLE_DLC, JSON.stringify(donnees));
+  afficherDLC(); majJaugeMemoire();
+  alert(n ? `✅ ${n} photo(s) de produits périmés supprimée(s).` : 'Aucune photo de produit périmé.');
+});
+// Sauvegarde / restauration complète (toutes les clés haccp_*)
+document.getElementById('btn-sauvegarde-complete').addEventListener('click', () => {
+  const donnees = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith('haccp_')) donnees[k] = lireDonnees(k);
+  }
+  exporterJSON({ type: 'haccp_sauvegarde_complete', date: new Date().toISOString(), donnees }, `HACCP_sauvegarde_${isoLocal()}.json`);
+});
+document.getElementById('btn-restauration-complete').addEventListener('click', () => importerJSON(f => {
+  if (!f || f.type !== 'haccp_sauvegarde_complete' || typeof f.donnees !== 'object') {
+    alert('❌ Ce fichier n\'est pas une sauvegarde complète HACCP.'); return;
+  }
+  if (!confirm('Remplacer toutes les données de cet appareil par celles de la sauvegarde du ' + formaterDate((f.date || '').slice(0, 10)) + ' ?')) return;
+  Object.keys(f.donnees).forEach(k => { if (k.startsWith('haccp_')) ecrireDonnees(k, f.donnees[k]); });
+  alert('✅ Sauvegarde restaurée.');
+  location.reload();
+}));
+majJaugeMemoire();
+compresserPhotosExistantes().then(n => { if (n) { afficherDLC(); majJaugeMemoire(); } }).catch(() => {});
+
+// Guide de démarrage
+document.getElementById('btn-guide').addEventListener('click', ouvrirGuide);
+document.getElementById('fermer-guide').addEventListener('click', fermerGuide);
+document.getElementById('btn-prefill').addEventListener('click', prefillDonnees);
+document.getElementById('modal-guide').addEventListener('click', (e) => { if (e.target === document.getElementById('modal-guide')) fermerGuide(); });
+
+// Ouvrir le guide automatiquement si c'est la toute première visite (aucune donnée)
+const toutesLesCles = [CLE_EF, CLE_DLC, CLE_TEMP, CLE_NET, CLE_FRIT, CLE_REFROID, CLE_NC, CLE_RECEP, CLE_ALLERG];
+const premiereLancee = toutesLesCles.every(k => lireDonnees(k).length === 0);
+if (premiereLancee) setTimeout(ouvrirGuide, 400);
+</script>
+
+</body>
+</html>
