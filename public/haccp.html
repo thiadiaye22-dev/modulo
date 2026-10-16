@@ -491,14 +491,16 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .f-62x29 .l-dlc small{font-size:5.5pt}
 .f-62x29 .l-allerg{font-size:6pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 /* 29 x 90 mm (imprimée à l'horizontale) */
-.lbl.f-29x90{width:90mm; height:29mm; padding:1.5mm 2.5mm; flex-direction:row; gap:2mm}
-.f-29x90 .l-col{flex:1; gap:.5mm}
-.f-29x90 .l-col.droite{flex:0 0 32mm; justify-content:center}
+.lbl.f-29x90{width:90mm; height:29mm; padding:1.8mm 2.5mm; flex-direction:row; gap:2.5mm; align-items:center}
+.f-29x90 .l-col{flex:1; gap:.6mm}
+.f-29x90 .l-col.droite{flex:0 0 37mm; justify-content:center}
 .f-29x90 .l-entete,.f-29x90 .l-pied{display:none}
-.f-29x90 .l-nom{font-size:10pt}
-.f-29x90 .l-ligne,.f-29x90 .l-allerg{font-size:6.5pt}
-.f-29x90 .l-dlc{font-size:12pt; padding:.8mm .3mm}
-.f-29x90 .l-dlc small{font-size:5.5pt}
+.f-29x90 .l-nom{font-size:14pt; line-height:1.05}
+.f-29x90 .l-nom.long{font-size:10.5pt; -webkit-line-clamp:3}
+.f-29x90 .l-ligne{font-size:8.5pt}
+.f-29x90 .l-allerg{font-size:8pt}
+.f-29x90 .l-dlc{font-size:17pt; padding:1mm .3mm; border-width:.9mm}
+.f-29x90 .l-dlc small{font-size:6.5pt}
 .apercu-lbl{display:flex; flex-wrap:wrap; gap:10px}
 .apercu-lbl .lbl{border:1px dashed #9aa5a0; break-after:auto}
 @media print{
@@ -2635,7 +2637,7 @@ function htmlEtiquette(e, format) {
   const lignes = e.lignes.map(l => `<div class="l-ligne">${l}</div>`).join('');
   const allerg = e.allergenes ? `<div class="l-allerg">Allergènes : ${e.allergenes}</div>` : '';
   if (format === '29x90') {
-    return `<div class="lbl f-29x90"><div class="l-col"><div class="l-nom">${e.nom}</div>${lignes}${allerg}</div><div class="l-col droite">${dlc}</div></div>`;
+    return `<div class="lbl f-29x90"><div class="l-col"><div class="l-nom${e.nom.length > 16 ? ' long' : ''}">${e.nom}</div>${lignes}${allerg}</div><div class="l-col droite">${dlc}</div></div>`;
   }
   return `<div class="lbl f-${format}"><div class="l-entete">${e.entete}</div><div class="l-nom">${e.nom}</div>${lignes}${dlc}${allerg}<div class="l-pied">${e.pied || ''}</div></div>`;
 }
