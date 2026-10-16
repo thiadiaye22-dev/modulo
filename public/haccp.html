@@ -484,7 +484,8 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .f-c62 .l-allerg,.f-c62 .l-pied{font-size:7pt}
 /* 62 x 29 mm */
 .lbl.f-62x29{width:62mm; height:29mm; padding:1.5mm 2mm; gap:.6mm}
-.f-62x29 .l-entete,.f-62x29 .l-pied{display:none}
+.f-62x29 .l-entete{display:none}
+.f-62x29 .l-pied{font-size:6pt; font-weight:700}
 .f-62x29 .l-nom{font-size:9.5pt; -webkit-line-clamp:1; display:block; white-space:nowrap; text-overflow:ellipsis}
 .f-62x29 .l-nom.long{font-size:7.5pt; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; line-height:1.05}
 .f-62x29 .l-ligne{font-size:6pt; line-height:1.1}
@@ -492,16 +493,16 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .f-62x29 .l-dlc small{font-size:5.5pt}
 .f-62x29 .l-allerg{font-size:6pt; line-height:1.1}
 /* 29 x 90 mm (imprimée à l'horizontale) */
-.lbl.f-29x90{width:90mm; height:29mm; padding:1.8mm 2.5mm; flex-direction:row; gap:2.5mm; align-items:center}
-.f-29x90 .l-col{flex:1; gap:.6mm}
-.f-29x90 .l-col.droite{flex:0 0 37mm; justify-content:center}
+.lbl.f-29x90{width:90mm; height:29mm; padding:1.4mm 2.5mm; flex-direction:row; gap:2mm; align-items:center}
+.f-29x90 .l-col{flex:1; gap:.3mm}
+.f-29x90 .l-col.droite{flex:0 0 33mm; justify-content:center}
 .f-29x90 .l-entete,.f-29x90 .l-pied{display:none}
-.f-29x90 .l-nom{font-size:14pt; line-height:1.05}
-.f-29x90 .l-nom.long{font-size:10.5pt; -webkit-line-clamp:3}
-.f-29x90 .l-ligne{font-size:8.5pt}
-.f-29x90 .l-allerg{font-size:8pt}
-.f-29x90 .l-dlc{font-size:17pt; padding:1mm .3mm; border-width:.9mm}
-.f-29x90 .l-dlc small{font-size:6.5pt}
+.f-29x90 .l-nom{font-size:13pt; line-height:1.05}
+.f-29x90 .l-nom.long{font-size:9.5pt; line-height:1.02; -webkit-line-clamp:3}
+.f-29x90 .l-ligne,.f-29x90 .l-allerg{font-size:7.5pt; line-height:1.12}
+.f-29x90 .l-par{font-weight:700}
+.f-29x90 .l-dlc{font-size:15pt; padding:1mm .3mm; border-width:.9mm}
+.f-29x90 .l-dlc small{font-size:6pt}
 .rot-29x90{width:29mm; height:90mm; position:relative; overflow:hidden; break-after:page; page-break-after:always}
 .rot-29x90:last-child{break-after:auto; page-break-after:auto}
 .rot-29x90 > .lbl{position:absolute; top:0; left:29mm; transform-origin:0 0; transform:rotate(90deg)}
@@ -985,7 +986,7 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
           </select>
         </div>
         <div class="champ">
-          <label>Réalisé par</label>
+          <label>Réalisé par (obligatoire)</label>
           <input type="text" id="etiq-prep-par" placeholder="Initiales / nom du cuisinier">
         </div>
       </div>
@@ -2646,7 +2647,7 @@ function htmlEtiquette(e, format) {
   const lignes = e.lignes.map(l => `<div class="l-ligne">${l}</div>`).join('');
   const allerg = e.allergenes ? `<div class="l-allerg">Allergènes : ${e.allergenes}</div>` : '';
   if (format === '29x90') {
-    return `<div class="lbl f-29x90"><div class="l-col"><div class="l-nom${e.nom.length > 16 ? ' long' : ''}">${e.nom}</div>${lignes}${allerg}</div><div class="l-col droite">${dlc}</div></div>`;
+    return `<div class="lbl f-29x90"><div class="l-col"><div class="l-nom${e.nom.length > 16 ? ' long' : ''}">${e.nom}</div>${lignes}${e.pied ? `<div class="l-ligne l-par">${e.pied}</div>` : ''}${allerg}</div><div class="l-col droite">${dlc}</div></div>`;
   }
   return `<div class="lbl f-${format}"><div class="l-entete">${e.entete}</div><div class="l-nom${e.nom.length > 22 ? ' long' : ''}">${e.nom}</div>${lignes}${dlc}${allerg}<div class="l-pied">${e.pied || ''}</div></div>`;
 }
@@ -2690,6 +2691,17 @@ function allergenesEtiquette() {
 }
 function origineEtiquette() { return document.getElementById('etiq-prep-origine').value.trim(); }
 
+// « Réalisé par » obligatoire (traçabilité) ; le dernier nom saisi est retenu sur l'appareil
+const CLE_PREF_PAR = 'pref_etiq_realise_par';
+try { const n = localStorage.getItem(CLE_PREF_PAR); if (n) document.getElementById('etiq-prep-par').value = n; } catch (e) {}
+function verifierRealisePar() {
+  const champ = document.getElementById('etiq-prep-par');
+  const par = champ.value.trim();
+  if (!par) { alert('Indique qui a réalisé la préparation (champ « Réalisé par »).'); champ.focus(); return false; }
+  try { localStorage.setItem(CLE_PREF_PAR, par); } catch (e) {}
+  return true;
+}
+
 function donneesEtiquettePrep() {
   return {
     entete: 'Le Modulo · Préparation maison',
@@ -2699,7 +2711,7 @@ function donneesEtiquettePrep() {
             .concat(origineEtiquette() ? ['Origine : ' + origineEtiquette()] : []),
     dlc: document.getElementById('etiq-prep-dlc').value,
     allergenes: allergenesEtiquette(),
-    pied: (() => { const par = document.getElementById('etiq-prep-par').value.trim(); return par ? 'Réalisé par : ' + par : ''; })()
+    pied: (() => { const par = document.getElementById('etiq-prep-par').value.trim(); return par ? 'Par : ' + par : ''; })()
   };
 }
 
@@ -2707,6 +2719,7 @@ document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
   const nom = document.getElementById('etiq-prep-nom').value.trim();
   const dlc = document.getElementById('etiq-prep-dlc').value;
   if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom de la préparation et la date limite de consommation.'); return; }
+  if (!verifierRealisePar()) return;
   const dateProd = document.getElementById('etiq-prep-date-prod').value;
   const heureProd = document.getElementById('etiq-prep-heure-prod').value;
   const lieu = document.getElementById('etiq-prep-lieu').value + (origineEtiquette() ? ' · Origine : ' + origineEtiquette() : '');
@@ -2731,6 +2744,7 @@ document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
 });
 
 document.getElementById('etiq-prep-imprimer-btn').addEventListener('click', () => {
+  if (!verifierRealisePar()) return;
   if (formatEtiq() !== 'a4') {
     const e = donneesEtiquettePrep();
     const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
