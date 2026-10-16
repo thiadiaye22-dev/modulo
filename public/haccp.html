@@ -501,6 +501,9 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .f-29x90 .l-allerg{font-size:8pt}
 .f-29x90 .l-dlc{font-size:17pt; padding:1mm .3mm; border-width:.9mm}
 .f-29x90 .l-dlc small{font-size:6.5pt}
+.rot-29x90{width:29mm; height:90mm; position:relative; overflow:hidden; break-after:page; page-break-after:always}
+.rot-29x90:last-child{break-after:auto; page-break-after:auto}
+.rot-29x90 > .lbl{position:absolute; top:0; left:29mm; transform-origin:0 0; transform:rotate(90deg)}
 .apercu-lbl{display:flex; flex-wrap:wrap; gap:10px}
 .apercu-lbl .lbl{border:1px dashed #9aa5a0; break-after:auto}
 @media print{
@@ -2619,7 +2622,7 @@ function genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, alle
 const FORMATS_ETIQ = {
   c62:     { page: '62mm 45mm' },
   '62x29': { page: '62mm 29mm' },
-  '29x90': { page: '90mm 29mm' },
+  '29x90': { page: '29mm 90mm' },
   a4:      null
 };
 const CLE_PREF_FORMAT = 'pref_format_etiquettes';
@@ -2651,7 +2654,10 @@ window.addEventListener('afterprint', nettoyerImpressionEtiq);
 function imprimerEtiquettesImprimante(etiquettes) {
   const format = formatEtiq();
   nettoyerImpressionEtiq();
-  document.getElementById('zone-impression-etiq').innerHTML = etiquettes.map(e => htmlEtiquette(e, format)).join('');
+  // 29x90 : la page est en portrait (29 mm de large, comme le rouleau) et l'étiquette est tournée,
+  // pour que l'imprimante n'ait jamais à réduire ni à tourner la page.
+  document.getElementById('zone-impression-etiq').innerHTML = etiquettes.map(e =>
+    format === '29x90' ? `<div class="rot-29x90">${htmlEtiquette(e, format)}</div>` : htmlEtiquette(e, format)).join('');
   styleImpressionEtiq = document.createElement('style');
   styleImpressionEtiq.textContent = `@page { size: ${FORMATS_ETIQ[format].page}; margin: 0; }`;
   document.head.appendChild(styleImpressionEtiq);
