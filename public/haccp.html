@@ -475,7 +475,7 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .lbl .l-col{display:flex; flex-direction:column; min-width:0}
 .lbl > *,.lbl .l-col > *{flex-shrink:0}
 /* 62 mm continu */
-.lbl.f-c62{width:62mm; height:45mm; padding:2.5mm 3mm; gap:1mm}
+.lbl.f-c62{width:62mm; height:58mm; padding:2.5mm 3mm; gap:1mm}
 .f-c62 .l-entete{font-size:6pt; padding-bottom:.6mm}
 .f-c62 .l-nom{font-size:12pt; line-height:1.1}
 .f-c62 .l-ligne{font-size:8pt}
@@ -486,10 +486,11 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .lbl.f-62x29{width:62mm; height:29mm; padding:1.5mm 2mm; gap:.6mm}
 .f-62x29 .l-entete,.f-62x29 .l-pied{display:none}
 .f-62x29 .l-nom{font-size:9.5pt; -webkit-line-clamp:1; display:block; white-space:nowrap; text-overflow:ellipsis}
-.f-62x29 .l-ligne{font-size:6.5pt}
+.f-62x29 .l-nom.long{font-size:7.5pt; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; line-height:1.05}
+.f-62x29 .l-ligne{font-size:6pt; line-height:1.1}
 .f-62x29 .l-dlc{font-size:12pt; padding:.3mm}
 .f-62x29 .l-dlc small{font-size:5.5pt}
-.f-62x29 .l-allerg{font-size:6pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.f-62x29 .l-allerg{font-size:6pt; line-height:1.1}
 /* 29 x 90 mm (imprimée à l'horizontale) */
 .lbl.f-29x90{width:90mm; height:29mm; padding:1.8mm 2.5mm; flex-direction:row; gap:2.5mm; align-items:center}
 .f-29x90 .l-col{flex:1; gap:.6mm}
@@ -988,9 +989,14 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
           <input type="text" id="etiq-prep-par" placeholder="Initiales / nom du cuisinier">
         </div>
       </div>
+      <div class="champ" style="margin-bottom:14px; max-width:420px;">
+        <label>Origine (facultatif)</label>
+        <input type="text" id="etiq-prep-origine" placeholder="Ex: France, Portugal, Espagne...">
+      </div>
       <div class="champ" style="margin-bottom:14px;">
-        <label>Allergènes (facultatif)</label>
-        <input type="text" id="etiq-prep-allergenes" placeholder="Ex: Lait, Gluten, Œufs...">
+        <label>Allergènes présents dans la préparation (les 14 allergènes réglementaires)</label>
+        <div class="allergene-grille" id="etiq-prep-allerg-grille"></div>
+        <label class="allergene-case" id="etiq-prep-sans-allerg-case" style="margin-top:8px; display:inline-flex;"><input type="checkbox" id="etiq-prep-sans-allerg"> Aucun allergène</label>
       </div>
       <div class="champ" style="margin-bottom:14px;">
         <label>Nombre d'étiquettes à imprimer</label>
@@ -2620,7 +2626,7 @@ function genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, alle
 
 // ---- Impression sur imprimante d'étiquettes (Brother QL) ----
 const FORMATS_ETIQ = {
-  c62:     { page: '62mm 45mm' },
+  c62:     { page: '62mm 58mm' },
   '62x29': { page: '62mm 29mm' },
   '29x90': { page: '29mm 90mm' },
   a4:      null
@@ -2642,7 +2648,7 @@ function htmlEtiquette(e, format) {
   if (format === '29x90') {
     return `<div class="lbl f-29x90"><div class="l-col"><div class="l-nom${e.nom.length > 16 ? ' long' : ''}">${e.nom}</div>${lignes}${allerg}</div><div class="l-col droite">${dlc}</div></div>`;
   }
-  return `<div class="lbl f-${format}"><div class="l-entete">${e.entete}</div><div class="l-nom">${e.nom}</div>${lignes}${dlc}${allerg}<div class="l-pied">${e.pied || ''}</div></div>`;
+  return `<div class="lbl f-${format}"><div class="l-entete">${e.entete}</div><div class="l-nom${e.nom.length > 22 ? ' long' : ''}">${e.nom}</div>${lignes}${dlc}${allerg}<div class="l-pied">${e.pied || ''}</div></div>`;
 }
 
 let styleImpressionEtiq = null;
@@ -2665,14 +2671,34 @@ function imprimerEtiquettesImprimante(etiquettes) {
   window.print();
 }
 
+// Allergènes de l'étiquette : cases à cocher parmi les 14 allergènes réglementaires
+(function construireAllergenesEtiquette() {
+  const grille = document.getElementById('etiq-prep-allerg-grille');
+  grille.innerHTML = LISTE_ALLERGENES.map((a, i) =>
+    `<label class="allergene-case"><input type="checkbox" class="etiq-allerg" id="etiq-allerg-${i}" value="${a}"> ${a}</label>`).join('');
+  const sans = document.getElementById('etiq-prep-sans-allerg');
+  const maj = () => {
+    document.querySelectorAll('.etiq-allerg').forEach(c => c.closest('.allergene-case').classList.toggle('coche', c.checked));
+    document.getElementById('etiq-prep-sans-allerg-case').classList.toggle('coche', sans.checked);
+  };
+  grille.addEventListener('change', () => { if (document.querySelector('.etiq-allerg:checked')) sans.checked = false; maj(); });
+  sans.addEventListener('change', () => { if (sans.checked) document.querySelectorAll('.etiq-allerg').forEach(c => c.checked = false); maj(); });
+})();
+function allergenesEtiquette() {
+  if (document.getElementById('etiq-prep-sans-allerg').checked) return 'Aucun';
+  return Array.from(document.querySelectorAll('.etiq-allerg:checked')).map(c => c.value).join(', ');
+}
+function origineEtiquette() { return document.getElementById('etiq-prep-origine').value.trim(); }
+
 function donneesEtiquettePrep() {
   return {
     entete: 'Le Modulo · Préparation maison',
     nom: document.getElementById('etiq-prep-nom').value.trim(),
     lignes: [`Fabriqué le ${formaterDate(document.getElementById('etiq-prep-date-prod').value)} à ${document.getElementById('etiq-prep-heure-prod').value || '—'}`,
-             document.getElementById('etiq-prep-lieu').value],
+             document.getElementById('etiq-prep-lieu').value]
+            .concat(origineEtiquette() ? ['Origine : ' + origineEtiquette()] : []),
     dlc: document.getElementById('etiq-prep-dlc').value,
-    allergenes: document.getElementById('etiq-prep-allergenes').value.trim(),
+    allergenes: allergenesEtiquette(),
     pied: (() => { const par = document.getElementById('etiq-prep-par').value.trim(); return par ? 'Réalisé par : ' + par : ''; })()
   };
 }
@@ -2683,9 +2709,9 @@ document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
   if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom de la préparation et la date limite de consommation.'); return; }
   const dateProd = document.getElementById('etiq-prep-date-prod').value;
   const heureProd = document.getElementById('etiq-prep-heure-prod').value;
-  const lieu = document.getElementById('etiq-prep-lieu').value;
+  const lieu = document.getElementById('etiq-prep-lieu').value + (origineEtiquette() ? ' · Origine : ' + origineEtiquette() : '');
   const par = document.getElementById('etiq-prep-par').value.trim();
-  const allergenes = document.getElementById('etiq-prep-allergenes').value.trim();
+  const allergenes = allergenesEtiquette();
   const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
   if (formatEtiq() !== 'a4') {
     document.getElementById('etiq-prep-preview').innerHTML = `<div class="apercu-lbl">${htmlEtiquette(donneesEtiquettePrep(), formatEtiq())}</div>` +
