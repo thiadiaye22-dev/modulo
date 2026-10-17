@@ -521,7 +521,7 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 
 <header>
   <h1>📋 Traçabilité HACCP — Restaurant Le Modulo</h1>
-  <div style="display:flex; gap:8px; flex-wrap:wrap;"><div class="date" id="jauge-memoire" title="Mémoire du navigateur utilisée par l'appli">Mémoire : —</div><div class="date" id="date-actuelle"></div></div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;"><div class="date" id="badge-sync" role="button" tabindex="0" title="Synchronisation entre appareils" style="cursor:pointer;">☁️ …</div><div class="date" id="jauge-memoire" title="Mémoire du navigateur utilisée par l'appli">Mémoire : —</div><div class="date" id="date-actuelle"></div></div>
 </header>
 
 <nav>
@@ -1158,6 +1158,16 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 <div class="photo-modale" id="photo-modale"><img id="photo-modale-img" src="" alt="Étiquette agrandie"></div>
 
 <!-- MODAL GUIDE DE DEMARRAGE -->
+<div class="modal-overlay" id="modal-sync">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-header">
+      <h2>🔄 Synchronisation entre appareils</h2>
+      <span class="fermer" id="fermer-sync">✕</span>
+    </div>
+    <div class="modal-body" id="modal-sync-corps"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-guide">
   <div class="modal-box">
     <div class="modal-header">
@@ -1261,6 +1271,7 @@ function fermerGuide() { document.getElementById('modal-guide').classList.remove
 // ===================== UTILITAIRES =====================
 function lireDonnees(cle) { try { return JSON.parse(localStorage.getItem(cle)) || []; } catch { return []; } }
 function ecrireDonnees(cle, valeur) {
+  syncNoterChangements(cle, valeur);
   try { localStorage.setItem(cle, JSON.stringify(valeur)); majJaugeMemoire(); }
   catch (e) {
     const msg = "❌ NON ENREGISTRÉ : la mémoire du navigateur est pleine. Va dans 📊 Tableau de bord → « Alléger toutes les photos » ou « Supprimer les photos des produits périmés », puis recommence.";
@@ -1299,6 +1310,305 @@ function afficherErreur(msg) {
 window.addEventListener('error', e => afficherErreur('Erreur : ' + (e.message || 'inconnue') + ' — fais une capture d\'écran et envoie-la.'));
 window.addEventListener('unhandledrejection', e => afficherErreur('Erreur : ' + ((e.reason && e.reason.message) || e.reason)));
 
+// ===================== SYNCHRO EN LIGNE (Supabase) =====================
+// Les données restent enregistrées dans l'appareil (l'appli marche sans réseau) et sont
+// recopiées dans Supabase : chaque appareil connecté retrouve ce que les autres ont saisi.
+const SB_URL = 'https://xdeliqzdngvkpjkbwbjm.supabase.co';
+const SB_CLE = 'sb_publishable_mzoez6q7oCJm3TM7euf9tA_pZtyuW4L';   // clé publique, l'accès est protégé par la connexion
+const SB_EMAIL_DEFAUT = 'thiadiaye22+haccp@gmail.com';
+const SYNC_TABLES = {
+  haccp_dlc: 'dlc', haccp_equipements_froid: 'equipements_froid', haccp_temperatures: 'temperatures',
+  haccp_nettoyage: 'nettoyage', haccp_nettoyage_zones: 'nettoyage_zones', haccp_friteuses: 'friteuses',
+  haccp_friteuses_historique: 'friteuses_historique', haccp_refroidissement: 'refroidissement',
+  haccp_allergenes: 'allergenes', haccp_nonconformites: 'nonconformites', haccp_reception: 'reception',
+  haccp_mercuriale_perso: 'mercuriale'
+};
+const SYNC_COL_BOOL = { nettoyage: 'fait', nonconformites: 'resolue' };   // colonnes en plus du payload
+const CLE_SYNC_SESSION = 'sync_session';
+const CLE_SYNC_FILE = 'sync_file_attente';   // modifications pas encore envoyées : { table: { upserts: {id: ligne}, deletes: [id] } }
+let syncEtat = 'ok', syncEnCours = null, syncDerniere = null, syncDerniereErreur = '';
+
+function syncLire(cle, defaut) { try { const v = JSON.parse(localStorage.getItem(cle)); return v == null ? defaut : v; } catch (e) { return defaut; } }
+function syncEcrire(cle, v) {
+  try { localStorage.setItem(cle, JSON.stringify(v)); }
+  catch (e) { afficherErreur('Mémoire pleine : la synchro ne peut pas mettre la modification en attente. Allège les photos (📊 Tableau de bord).'); }
+}
+function syncSession() { return syncLire(CLE_SYNC_SESSION, null); }
+function syncNbAttente() {
+  return Object.values(syncLire(CLE_SYNC_FILE, {})).reduce((n, f) => n + Object.keys(f.upserts || {}).length + (f.deletes || []).length, 0);
+}
+
+function idItem(table, item) {
+  if (table === 'nettoyage_zones') return item == null ? null : String(item);
+  return item && item.id != null ? String(item.id) : null;
+}
+function versLigne(table, item) {
+  if (table === 'nettoyage_zones') return { id: String(item), payload: { nom: String(item) } };
+  const { id, ...payload } = item;
+  const ligne = { id: String(id), payload };
+  const col = SYNC_COL_BOOL[table];
+  if (col) ligne[col] = !!item[col];
+  return ligne;
+}
+function depuisLigne(table, l) {
+  if (table === 'nettoyage_zones') return (l.payload && l.payload.nom) || l.id;
+  const item = { ...(l.payload || {}), id: l.id };
+  const col = SYNC_COL_BOOL[table];
+  if (col && typeof l[col] === 'boolean') item[col] = l[col];
+  return item;
+}
+function completerIds(table, valeur) {
+  if (table === 'nettoyage_zones' || !Array.isArray(valeur)) return;
+  valeur.forEach(it => { if (it && typeof it === 'object' && it.id == null) it.id = genererId(); });
+}
+
+// Appelé par ecrireDonnees juste avant l'enregistrement : met en attente ce qui a changé
+function syncNoterChangements(cle, nouveau) {
+  const table = SYNC_TABLES[cle];
+  if (!table || !Array.isArray(nouveau)) return;
+  completerIds(table, nouveau);
+  if (!syncSession()) return;   // pas connecté : la première connexion proposera d'envoyer les données de l'appareil
+  const avant = new Map(lireDonnees(cle).map(it => [idItem(table, it), JSON.stringify(it)]));
+  const file = syncLire(CLE_SYNC_FILE, {});
+  const f = file[table] || (file[table] = { upserts: {}, deletes: [] });
+  const vus = new Set();
+  nouveau.forEach(it => {
+    const id = idItem(table, it);
+    if (id == null) return;
+    vus.add(id);
+    if (avant.get(id) !== JSON.stringify(it)) { f.upserts[id] = versLigne(table, it); f.deletes = f.deletes.filter(d => d !== id); }
+  });
+  avant.forEach((_, id) => {
+    if (id != null && !vus.has(id)) { delete f.upserts[id]; if (!f.deletes.includes(id)) f.deletes.push(id); }
+  });
+  if (!Object.keys(f.upserts).length && !f.deletes.length) delete file[table];
+  syncEcrire(CLE_SYNC_FILE, file);
+  clearTimeout(syncNoterChangements.minuteur);
+  syncNoterChangements.minuteur = setTimeout(() => syncMaintenant(), 800);
+  majIndicateurSync();
+}
+
+// ---- Appels à Supabase (API REST, sans bibliothèque) ----
+async function sbAuth(type, corps) {
+  const rep = await fetch(SB_URL + '/auth/v1/token?grant_type=' + type, {
+    method: 'POST', headers: { apikey: SB_CLE, 'Content-Type': 'application/json' }, body: JSON.stringify(corps)
+  });
+  const d = await rep.json().catch(() => ({}));
+  if (!rep.ok) {
+    const e = new Error(d.error_description || d.msg || d.message || ('Erreur ' + rep.status));
+    e.authRefusee = rep.status >= 400 && rep.status < 500;
+    throw e;
+  }
+  return { access_token: d.access_token, refresh_token: d.refresh_token,
+           expires_at: Date.now() + (d.expires_in || 3600) * 1000, email: (d.user && d.user.email) || '' };
+}
+async function sbRafraichir() {
+  const s = syncSession();
+  if (!s) throw new Error('Non connecté');
+  try {
+    const n = await sbAuth('refresh_token', { refresh_token: s.refresh_token });
+    n.email = n.email || s.email;
+    syncEcrire(CLE_SYNC_SESSION, n);
+  } catch (e) {
+    if (e.authRefusee) { localStorage.removeItem(CLE_SYNC_SESSION); }   // session expirée : il faudra se reconnecter
+    throw e;
+  }
+}
+async function sbFetch(chemin, options = {}, essai = 0) {
+  let s = syncSession();
+  if (!s) throw new Error('Non connecté');
+  if (s.expires_at && Date.now() > s.expires_at - 60000) { await sbRafraichir(); s = syncSession(); }
+  const rep = await fetch(SB_URL + chemin, { ...options, headers: {
+    apikey: SB_CLE, Authorization: 'Bearer ' + s.access_token, 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  if (rep.status === 401 && essai === 0) { await sbRafraichir(); return sbFetch(chemin, options, 1); }
+  if (!rep.ok) { const t = await rep.text().catch(() => ''); throw new Error('Supabase ' + rep.status + ' ' + t.slice(0, 200)); }
+  return rep;
+}
+async function sbToutLire(table, select) {
+  const lignes = [];
+  for (let off = 0; ; off += 1000) {
+    const page = await (await sbFetch(`/rest/v1/${table}?select=${select}&order=created_at.asc,id.asc&limit=1000&offset=${off}`)).json();
+    lignes.push(...page);
+    if (page.length < 1000) return lignes;
+  }
+}
+
+async function syncEnvoyer() {
+  const file = syncLire(CLE_SYNC_FILE, {});
+  for (const table of Object.keys(file)) {
+    const ups = Object.values(file[table].upserts || {});
+    const dels = (file[table].deletes || []).slice();
+    for (let i = 0; i < ups.length; i += 100) {
+      await sbFetch(`/rest/v1/${table}?on_conflict=id`, { method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(ups.slice(i, i + 100)) });
+    }
+    for (let i = 0; i < dels.length; i += 100) {
+      const ids = dels.slice(i, i + 100).map(id => '"' + String(id).replace(/["\\]/g, '\\$&') + '"').join(',');
+      await sbFetch(`/rest/v1/${table}?id=in.(${encodeURIComponent(ids)})`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+    }
+    // Ne retirer de la file que ce qui a été envoyé tel quel (une saisie a pu arriver entre-temps)
+    const actuelle = syncLire(CLE_SYNC_FILE, {});
+    const a = actuelle[table];
+    if (a) {
+      ups.forEach(l => { if (a.upserts[l.id] && JSON.stringify(a.upserts[l.id]) === JSON.stringify(l)) delete a.upserts[l.id]; });
+      a.deletes = a.deletes.filter(d => !dels.includes(d));
+      if (!Object.keys(a.upserts).length && !a.deletes.length) delete actuelle[table];
+      syncEcrire(CLE_SYNC_FILE, actuelle);
+    }
+  }
+}
+
+async function syncRecevoir() {
+  let change = false;
+  for (const [cle, table] of Object.entries(SYNC_TABLES)) {
+    const lignes = await sbToutLire(table, '*');
+    let items = lignes.map(l => depuisLigne(table, l));
+    // Ce qui n'est pas encore envoyé depuis cet appareil reste prioritaire
+    const f = syncLire(CLE_SYNC_FILE, {})[table];
+    if (f) {
+      const supprimes = new Set(f.deletes);
+      items = items.filter(it => !supprimes.has(idItem(table, it)));
+      Object.values(f.upserts).forEach(l => {
+        const it = depuisLigne(table, l);
+        const i = items.findIndex(x => idItem(table, x) === l.id);
+        if (i >= 0) items[i] = it; else items.push(it);
+      });
+    }
+    const texte = JSON.stringify(items);
+    if (localStorage.getItem(cle) !== texte) {
+      try { localStorage.setItem(cle, texte); change = true; }
+      catch (e) { afficherErreur('Mémoire pleine : impossible de recevoir toutes les données en ligne. Allège les photos (📊 Tableau de bord).'); }
+    }
+  }
+  return change;
+}
+
+function syncMaintenant() {
+  if (!syncSession()) { majIndicateurSync(); return Promise.resolve(); }
+  if (syncEnCours) return syncEnCours;
+  syncEnCours = (async () => {
+    try {
+      await syncEnvoyer();
+      const change = await syncRecevoir();
+      if (syncNbAttente()) await syncEnvoyer();
+      syncEtat = 'ok'; syncDerniere = new Date(); syncDerniereErreur = '';
+      if (change) rafraichirAffichage();
+    } catch (e) {
+      syncDerniereErreur = e.message || String(e);
+      syncEtat = !syncSession() ? 'ok' : (e instanceof TypeError || navigator.onLine === false ? 'horsligne' : 'erreur');
+      console.warn('Synchro :', e);
+    } finally {
+      syncEnCours = null;
+      majIndicateurSync();
+      if (document.getElementById('modal-sync').classList.contains('ouverte')) afficherModalSync();
+    }
+  })();
+  return syncEnCours;
+}
+
+// Première connexion sur un appareil : proposer d'envoyer ce qu'il contient déjà
+async function syncPremiereConnexion() {
+  const aEnvoyer = {};
+  let n = 0;
+  for (const [cle, table] of Object.entries(SYNC_TABLES)) {
+    const locaux = lireDonnees(cle);
+    if (!locaux.length) continue;
+    completerIds(table, locaux);
+    const enLigne = new Set((await sbToutLire(table, 'id')).map(l => l.id));
+    const manquants = locaux.filter(it => idItem(table, it) != null && !enLigne.has(idItem(table, it)));
+    if (manquants.length) { aEnvoyer[table] = manquants.map(it => versLigne(table, it)); n += manquants.length; }
+  }
+  if (!n) return 0;
+  sauvegardeComplete();   // copie de sécurité téléchargée avant toute fusion
+  const ok = confirm(`Cet appareil contient ${n} élément(s) qui ne sont pas encore en ligne (équipements, relevés, produits…).\n\n` +
+    `OK : les envoyer en ligne pour les retrouver sur tous les appareils.\n` +
+    `Annuler : ne pas les envoyer (ils seront remplacés par les données en ligne ; une sauvegarde vient d'être téléchargée).\n\n` +
+    `Attention : si ce sont des données d'exemple, choisis Annuler.`);
+  if (!ok) return 0;
+  const file = syncLire(CLE_SYNC_FILE, {});
+  Object.entries(aEnvoyer).forEach(([table, lignes]) => {
+    const f = file[table] || (file[table] = { upserts: {}, deletes: [] });
+    lignes.forEach(l => { f.upserts[l.id] = l; });
+  });
+  syncEcrire(CLE_SYNC_FILE, file);
+  return n;
+}
+
+async function syncConnexion(email, motDePasse) {
+  const s = await sbAuth('password', { email, password: motDePasse });
+  s.email = s.email || email;
+  syncEcrire(CLE_SYNC_SESSION, s);
+  syncEcrire(CLE_SYNC_FILE, {});
+  await syncPremiereConnexion();
+  await syncMaintenant();
+}
+function syncDeconnexion() {
+  const n = syncNbAttente();
+  if (n && !confirm(`${n} modification(s) ne sont pas encore envoyées en ligne et seront perdues pour les autres appareils. Se déconnecter quand même ?`)) return;
+  localStorage.removeItem(CLE_SYNC_SESSION);
+  localStorage.removeItem(CLE_SYNC_FILE);
+  syncEtat = 'ok';
+  majIndicateurSync(); afficherModalSync();
+}
+
+function majIndicateurSync() {
+  const b = document.getElementById('badge-sync');
+  if (!b) return;
+  const n = syncNbAttente();
+  let texte, fond = 'rgba(255,255,255,.14)';
+  if (!syncSession()) { texte = '🔒 Non synchronisé'; fond = '#B07A12'; }
+  else if (syncEtat === 'horsligne') { texte = '📴 Hors ligne' + (n ? ` · ${n} en attente` : ''); fond = '#B07A12'; }
+  else if (syncEtat === 'erreur') { texte = '⚠️ Erreur de synchro'; fond = '#B83227'; }
+  else if (n) texte = `⏳ ${n} en attente`;
+  else texte = '☁️ Synchronisé';
+  b.textContent = texte;
+  b.style.background = fond;
+}
+
+function afficherModalSync() {
+  const corps = document.getElementById('modal-sync-corps');
+  const s = syncSession();
+  if (!s) {
+    corps.innerHTML = `
+      <p style="margin-bottom:12px;">Connecte cet appareil pour retrouver les mêmes données sur la tablette, le téléphone et l'ordinateur. À faire <strong>une seule fois</strong> par appareil.</p>
+      <form id="form-sync" style="display:flex; flex-direction:column; gap:10px; max-width:360px;">
+        <div class="champ"><label for="sync-email">E-mail</label><input type="email" id="sync-email" autocomplete="username" required value="${SB_EMAIL_DEFAUT}"></div>
+        <div class="champ"><label for="sync-mdp">Mot de passe</label><input type="password" id="sync-mdp" autocomplete="current-password" required></div>
+        <button class="btn btn-principal" type="submit" id="sync-connecter">Se connecter</button>
+        <div id="sync-message" style="font-size:13px;"></div>
+      </form>`;
+    document.getElementById('form-sync').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const msg = document.getElementById('sync-message'), btn = document.getElementById('sync-connecter');
+      btn.disabled = true; msg.style.color = 'var(--gris)'; msg.textContent = 'Connexion et récupération des données…';
+      try { await syncConnexion(document.getElementById('sync-email').value.trim(), document.getElementById('sync-mdp').value); afficherModalSync(); }
+      catch (e) {
+        btn.disabled = false; msg.style.color = 'var(--rouge)';
+        msg.textContent = /invalid/i.test(e.message) ? 'E-mail ou mot de passe incorrect.' :
+          (e instanceof TypeError ? 'Pas de connexion internet. Réessaie quand le réseau revient.' : 'Erreur : ' + e.message);
+      }
+    });
+    return;
+  }
+  const n = syncNbAttente();
+  corps.innerHTML = `
+    <p style="margin-bottom:6px;">✅ Connecté : <strong>${s.email || ''}</strong></p>
+    <p style="font-size:13px; color:var(--gris); margin-bottom:12px;">
+      ${syncEnCours ? 'Synchronisation en cours…' : (syncDerniere ? 'Dernière synchro : ' + syncDerniere.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Pas encore synchronisé')}
+      · ${n ? n + ' modification(s) en attente d\'envoi' : 'tout est envoyé'}
+      ${syncEtat === 'horsligne' ? '<br><span style="color:var(--or);">Hors ligne : les saisies sont gardées et partiront au retour du réseau.</span>' : ''}
+      ${syncEtat === 'erreur' ? '<br><span style="color:var(--rouge);">' + syncDerniereErreur.replace(/</g, '&lt;') + '</span>' : ''}
+    </p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-principal btn-petit" id="sync-maintenant">🔄 Synchroniser maintenant</button>
+      <button class="btn btn-secondaire btn-petit" id="sync-deconnecter">Se déconnecter</button>
+    </div>`;
+  document.getElementById('sync-maintenant').addEventListener('click', () => { syncMaintenant(); afficherModalSync(); });
+  document.getElementById('sync-deconnecter').addEventListener('click', syncDeconnexion);
+}
+function ouvrirModalSync() { afficherModalSync(); document.getElementById('modal-sync').classList.add('ouverte'); }
+
+
 // Réduit une photo (dataURL) : 800 px max, JPEG qualité 0.6 → ~60-120 Ko au lieu de 2-4 Mo
 function compresserImage(dataUrl, maxPx = 800, qualite = 0.6) {
   return new Promise(resolve => {
@@ -1324,7 +1634,7 @@ async function compresserPhotosExistantes(maxPx = 800, qualite = 0.6, seuil = 15
       if (nouv.length < d.photo.length) { d.photo = nouv; n++; }
     }
   }
-  if (n) { localStorage.setItem('haccp_dlc', JSON.stringify(donnees)); }
+  if (n) { try { ecrireDonnees('haccp_dlc', donnees); } catch (e) {} }
   return n;
 }
 
@@ -2006,6 +2316,7 @@ document.getElementById('ef-ajouter').addEventListener('click', () => {
 const CLE_TEMP = 'haccp_temperatures';
 
 function statutTemperature(equipement, valeur) {
+  equipement = equipement || '';
   const v = parseFloat(valeur);
   // Chercher dans les équipements personnalisés en premier
   const equipements = lireDonnees(CLE_EF);
@@ -3134,25 +3445,44 @@ document.getElementById('btn-suppr-photos-perimes').addEventListener('click', ()
   const donnees = lireDonnees(CLE_DLC);
   let n = 0;
   donnees.forEach(d => { if (d.photo && joursRestants(d.dlc) < 0) { d.photo = null; n++; } });
-  localStorage.setItem(CLE_DLC, JSON.stringify(donnees));
+  ecrireDonnees(CLE_DLC, donnees);
   afficherDLC(); majJaugeMemoire();
   alert(n ? `✅ ${n} photo(s) de produits périmés supprimée(s).` : 'Aucune photo de produit périmé.');
 });
 // Sauvegarde / restauration complète (toutes les clés haccp_*)
-document.getElementById('btn-sauvegarde-complete').addEventListener('click', () => {
+function sauvegardeComplete() {
   const donnees = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (k.startsWith('haccp_')) donnees[k] = lireDonnees(k);
   }
   exporterJSON({ type: 'haccp_sauvegarde_complete', date: new Date().toISOString(), donnees }, `HACCP_sauvegarde_${isoLocal()}.json`);
-});
+}
+document.getElementById('btn-sauvegarde-complete').addEventListener('click', sauvegardeComplete);
 document.getElementById('btn-restauration-complete').addEventListener('click', () => importerJSON(f => {
   if (!f || f.type !== 'haccp_sauvegarde_complete' || typeof f.donnees !== 'object') {
     alert('❌ Ce fichier n\'est pas une sauvegarde complète HACCP.'); return;
   }
-  if (!confirm('Remplacer toutes les données de cet appareil par celles de la sauvegarde du ' + formaterDate((f.date || '').slice(0, 10)) + ' ?')) return;
-  Object.keys(f.donnees).forEach(k => { if (k.startsWith('haccp_')) ecrireDonnees(k, f.donnees[k]); });
+  const connecte = !!syncSession();
+  if (!confirm((connecte
+      ? 'Ajouter les données de la sauvegarde du ' + formaterDate((f.date || '').slice(0, 10)) + ' à celles en ligne ? (rien ne sera supprimé)'
+      : 'Remplacer toutes les données de cet appareil par celles de la sauvegarde du ' + formaterDate((f.date || '').slice(0, 10)) + ' ?'))) return;
+  Object.keys(f.donnees).forEach(k => {
+    if (!k.startsWith('haccp_') || !Array.isArray(f.donnees[k])) return;
+    let valeur = f.donnees[k];
+    const table = SYNC_TABLES[k];
+    if (connecte && table) {
+      // Synchronisé : on fusionne pour ne pas effacer ce que les autres appareils ont saisi
+      completerIds(table, valeur);
+      const fusion = lireDonnees(k);
+      valeur.forEach(it => {
+        const i = fusion.findIndex(x => idItem(table, x) === idItem(table, it));
+        if (i >= 0) fusion[i] = it; else fusion.push(it);
+      });
+      valeur = fusion;
+    }
+    ecrireDonnees(k, valeur);
+  });
   alert('✅ Sauvegarde restaurée.');
   location.reload();
 }));
@@ -3168,7 +3498,31 @@ document.getElementById('modal-guide').addEventListener('click', (e) => { if (e.
 // Ouvrir le guide automatiquement si c'est la toute première visite (aucune donnée)
 const toutesLesCles = [CLE_EF, CLE_DLC, CLE_TEMP, CLE_NET, CLE_FRIT, CLE_REFROID, CLE_NC, CLE_RECEP, CLE_ALLERG];
 const premiereLancee = toutesLesCles.every(k => lireDonnees(k).length === 0);
-if (premiereLancee) setTimeout(ouvrirGuide, 400);
+
+// ---- Synchronisation : démarrage, puis toutes les minutes et au retour sur l'appli ----
+function rafraichirAffichage() {
+  afficherDLC(); afficherTemperatures(); remplirSelectZonesNettoyage(); afficherNettoyage();
+  remplirOptionsMercuriale(); afficherMercurialePerso(); afficherEquipementsFroid(); majAujourdHui();
+  afficherFriteuses(); afficherHistoriqueFriteuses(); afficherRefroidissement(); afficherAllergenes();
+  afficherEtiquettes(); afficherNonConformites(); afficherReceptions(); majTableauBord(); majJaugeMemoire();
+}
+document.getElementById('badge-sync').addEventListener('click', ouvrirModalSync);
+document.getElementById('badge-sync').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') ouvrirModalSync(); });
+document.getElementById('fermer-sync').addEventListener('click', () => document.getElementById('modal-sync').classList.remove('ouverte'));
+document.getElementById('modal-sync').addEventListener('click', e => { if (e.target.id === 'modal-sync') e.target.classList.remove('ouverte'); });
+majIndicateurSync();
+if (syncSession()) {
+  syncMaintenant();
+} else {
+  // Pas encore connecté : proposer la connexion (une fois par ouverture de l'appli)
+  let dejaPropose = false;
+  try { dejaPropose = sessionStorage.getItem('sync_propose') === '1'; sessionStorage.setItem('sync_propose', '1'); } catch (e) {}
+  if (!dejaPropose) setTimeout(ouvrirModalSync, 400);
+  else if (premiereLancee) setTimeout(ouvrirGuide, 400);
+}
+setInterval(() => { if (document.visibilityState === 'visible') syncMaintenant(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncMaintenant(); });
+window.addEventListener('online', () => syncMaintenant());
 </script>
 
 </body>
