@@ -506,7 +506,45 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
 .rot-29x90{width:29mm; height:90mm; position:relative; overflow:hidden; break-after:page; page-break-after:always}
 .rot-29x90:last-child{break-after:auto; page-break-after:auto}
 .rot-29x90 > .lbl{position:absolute; top:0; left:29mm; transform-origin:0 0; transform:rotate(90deg)}
+/* A4 : planche 3 x 8 de 70 x 37 mm (24 par page) */
+.planche-a4{display:grid; grid-template-columns:repeat(3,70mm); grid-auto-rows:37mm; width:210mm}
+.lbl.f-a4{width:70mm; height:37mm; padding:2mm 3mm; gap:.7mm; break-after:auto; page-break-after:auto; break-inside:avoid}
+.f-a4 .l-entete{font-size:6pt; padding-bottom:.4mm}
+.f-a4 .l-nom{font-size:11pt; line-height:1.05; -webkit-line-clamp:1}
+.f-a4 .l-nom.long{font-size:8.5pt; -webkit-line-clamp:2}
+.f-a4 .l-ligne{font-size:7pt; line-height:1.1}
+.f-a4 .l-dlc{font-size:12pt; padding:.3mm}
+.f-a4 .l-dlc small{font-size:5.5pt}
+.f-a4 .l-allerg,.f-a4 .l-pied{font-size:6.5pt; line-height:1.1}
+/* Rouleau continu : bande unique (une coupe à la fin) */
+.bande-unique .lbl{break-after:auto; page-break-after:auto; border-bottom:.3mm dashed #000}
+.bande-unique .lbl:last-child{border-bottom:none}
+.qte-etiq{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.qte-etiq input{width:80px; text-align:center; font-size:18px; font-weight:800; padding:8px; border:1px solid var(--bordure); border-radius:6px}
+.qte-etiq > .btn{font-size:20px; padding:6px 16px}
+.qte-raccourcis,.dlc-raccourcis{display:flex; gap:4px; flex-wrap:wrap}
+.dlc-raccourcis{margin-top:4px}
+.recente{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid var(--bordure); border-radius:8px; margin-bottom:6px; flex-wrap:wrap}
+.recente .r-info{font-size:13px}
+.recente .r-info small{color:var(--gris); display:block}
+.recente .r-actions{display:flex; gap:6px}
 .apercu-lbl{display:flex; flex-wrap:wrap; gap:10px}
+/* ---------- Saisie rapide des températures ---------- */
+.tr-jours{display:flex; gap:6px; flex-wrap:wrap}
+.tr-jour{border:1px solid var(--bordure); background:#fff; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; text-align:center; min-width:74px; font-family:inherit}
+.tr-jour b{display:block; font-size:13px}
+.tr-jour.complet{background:var(--vert-clair); border-color:#A5D6A7; color:var(--vert)}
+.tr-jour.manque{background:var(--rouge-clair); border-color:#EF9A9A; color:var(--rouge)}
+.tr-jour.choisi{outline:3px solid var(--vert); outline-offset:1px}
+.tr-ligne{display:grid; grid-template-columns:1fr 130px; gap:10px; align-items:center; padding:9px 4px; border-bottom:1px solid var(--bordure)}
+.tr-ligne .tr-nom{font-weight:700; font-size:14px}
+.tr-ligne .tr-nom small{display:block; font-weight:400; color:var(--gris); font-size:11.5px}
+.tr-ligne input{width:100%; font-size:20px; font-weight:800; text-align:center; padding:8px; border:2px solid var(--bordure); border-radius:8px}
+.tr-ligne input.ok{border-color:var(--vert); background:var(--vert-clair)}
+.tr-ligne input.urgent{border-color:var(--rouge); background:var(--rouge-clair)}
+.tr-deja{color:var(--vert); font-weight:700}
+.tr-tardive{background:var(--or-clair); color:#7a5a00; border:1px solid #EAD8A8; border-radius:8px; padding:8px 12px; font-size:12.5px; margin-bottom:8px}
+.badge-tardif{font-size:10.5px; color:#7a5a00; background:var(--or-clair); border-radius:999px; padding:1px 7px; white-space:nowrap}
 .apercu-lbl .lbl{border:1px dashed #9aa5a0; break-after:auto}
 @media print{
   body.impr-etiq{background:#fff !important; margin:0 !important; padding:0 !important}
@@ -735,7 +773,27 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
   <!-- ===================== RELEVES TEMPERATURE ===================== -->
   <section id="temperatures" class="onglet">
     <div class="carte">
-      <h2>Nouveau relevé</h2>
+      <h2>⚡ Saisie rapide — tous les équipements</h2>
+      <div class="tr-jours" id="tr-jours"></div>
+      <div class="formulaire" style="margin-top:12px;">
+        <div class="champ"><label>Date du relevé</label><input type="date" id="tr-date"></div>
+        <div class="champ"><label>Heure</label><input type="time" id="tr-heure">
+          <span class="dlc-raccourcis">
+            <button type="button" class="btn btn-secondaire btn-petit" data-tr-heure="08:00">Matin 8h</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-tr-heure="12:00">Midi</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-tr-heure="18:00">Soir 18h</button>
+          </span>
+        </div>
+        <div class="champ"><label>Relevé par</label><input type="text" id="tr-personne" placeholder="Initiales / nom"></div>
+      </div>
+      <div id="tr-alerte-tardive" class="tr-tardive" style="display:none;"></div>
+      <div id="tr-grille"></div>
+      <button class="btn btn-principal" id="tr-enregistrer" style="margin-top:10px;">✅ Enregistrer tous les relevés</button>
+    </div>
+
+    <details class="carte">
+      <summary style="cursor:pointer; font-weight:700; color:var(--vert);">Relevé individuel (un seul équipement)</summary>
+      <div style="margin-top:14px;"></div>
       <div class="formulaire">
         <div class="champ"><label>Équipement</label>
           <select id="temp-equipement">
@@ -751,7 +809,7 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
         <div class="champ"><label>Relevé par</label><input type="text" id="temp-personne" placeholder="Initiales / nom"></div>
       </div>
       <button class="btn btn-principal" id="temp-ajouter">+ Enregistrer le relevé</button>
-    </div>
+    </details>
 
     <div class="carte">
       <h2>Seuils de référence (normes HACCP)</h2>
@@ -938,9 +996,13 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
           <option value="c62">Brother — rouleau continu 62 mm (DK-22205)</option>
           <option value="62x29">Brother — étiquettes 62 × 29 mm (DK-11209)</option>
           <option value="29x90">Brother — étiquettes 29 × 90 mm (DK-11201)</option>
-          <option value="a4">Feuille A4 (imprimante classique)</option>
+          <option value="a4">Feuille A4 — planche de 24 étiquettes 70 × 37 mm (3 × 8)</option>
         </select>
       </div>
+      <label id="etiq-bande-ligne" style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:10px; cursor:pointer;">
+        <input type="checkbox" id="etiq-bande-unique">
+        <span><strong>Impression rapide</strong> (rouleau continu) : toutes les étiquettes sur une seule bande, une seule coupe à la fin — découper aux pointillés.</span>
+      </label>
       <details style="font-size:12px; color:var(--gris); line-height:1.6;">
         <summary style="cursor:pointer; font-weight:700; color:var(--vert);">Comment imprimer depuis la tablette Android ?</summary>
         <ol style="margin:8px 0 0 18px;">
@@ -974,6 +1036,13 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
         <div class="champ">
           <label>Date limite de consommation</label>
           <input type="date" id="etiq-prep-dlc">
+          <span class="dlc-raccourcis">
+            <button type="button" class="btn btn-secondaire btn-petit" data-dlc-jours="1">J+1</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-dlc-jours="2">J+2</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-dlc-jours="3">J+3</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-dlc-jours="5">J+5</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-dlc-jours="7">J+7</button>
+          </span>
         </div>
         <div class="champ">
           <label>Lieu de stockage</label>
@@ -1000,18 +1069,24 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
         <label class="allergene-case" id="etiq-prep-sans-allerg-case" style="margin-top:8px; display:inline-flex;"><input type="checkbox" id="etiq-prep-sans-allerg"> Aucun allergène</label>
       </div>
       <div class="champ" style="margin-bottom:14px;">
-        <label>Nombre d'étiquettes à imprimer</label>
-        <select id="etiq-prep-quantite" style="max-width:160px; padding:9px 10px; border:1px solid var(--bordure); border-radius:6px; font-size:14px;">
-          <option value="1">1 étiquette</option>
-          <option value="2">2 étiquettes</option>
-          <option value="3">3 étiquettes</option>
-          <option value="4">4 étiquettes</option>
-          <option value="6">6 étiquettes</option>
-        </select>
+        <label>Nombre d'étiquettes à imprimer (1 à 99)</label>
+        <div class="qte-etiq">
+          <button type="button" class="btn btn-secondaire" data-qte-delta="-1" aria-label="Une de moins">−</button>
+          <input type="number" id="etiq-prep-quantite" value="1" min="1" max="99" step="1" inputmode="numeric">
+          <button type="button" class="btn btn-secondaire" data-qte-delta="1" aria-label="Une de plus">+</button>
+          <span class="qte-raccourcis">
+            <button type="button" class="btn btn-secondaire btn-petit" data-qte="1">1</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-qte="5">5</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-qte="10">10</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-qte="20">20</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-qte="30">30</button>
+          </span>
+        </div>
       </div>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;">
-        <button class="btn btn-principal" id="etiq-prep-apercu">👁 Aperçu &amp; Imprimer</button>
+        <button class="btn btn-principal" id="etiq-prep-direct">🖨 Imprimer maintenant</button>
+        <button class="btn btn-secondaire" id="etiq-prep-apercu">👁 Aperçu</button>
         <button class="btn btn-secondaire" id="etiq-prep-sauver">💾 Sauvegarder dans DLC &amp; Stocks</button>
       </div>
 
@@ -1024,6 +1099,12 @@ footer{color:var(--gris); font-size:11.5px; padding:24px}
           <button class="btn btn-secondaire btn-petit" id="etiq-prep-fermer">✕ Fermer l'aperçu</button>
         </div>
       </div>
+    </div>
+
+    <div class="carte" id="etiq-recentes-carte" style="display:none;">
+      <h2>⚡ Dernières préparations — réimprimer en 1 clic</h2>
+      <p style="font-size:12px; color:var(--gris); margin-bottom:10px;">« Reprendre » remplit le formulaire avec la date et l'heure d'aujourd'hui (la DLC garde le même nombre de jours).</p>
+      <div id="etiq-recentes"></div>
     </div>
 
     <div class="carte">
@@ -1687,6 +1768,11 @@ document.getElementById('date-actuelle').textContent = new Date().toLocaleDateSt
 // ===================== AUJOURD'HUI =====================
 const JOURS_SEMAINE = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 
+function ouvrirRattrapage(jour) {
+  document.querySelector('[data-onglet=temperatures]').click();
+  choisirDateSaisieRapide(jour);
+  document.getElementById('tr-date').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 function majAujourdHui() {
   const conteneur = document.getElementById('aujourdhui-contenu');
   const aujourd = new Date();
@@ -1716,6 +1802,12 @@ function majAujourdHui() {
       </span>
     </div>`;
   });
+  const oublis = (typeof joursManquants === 'function' ? joursManquants() : []).filter(j => j.manquants.length && j.jour !== isoLocal());
+  if (oublis.length) {
+    html += `<div class="tache-du-jour" style="border-color:var(--rouge); background:var(--rouge-clair); cursor:pointer;" onclick="ouvrirRattrapage('${oublis[0].jour}')">
+      <span>⚠️ Relevés oubliés : ${oublis.map(j => libelleJour(j.jour)).join(', ')}</span>
+      <span style="font-size:11px; color:var(--rouge); font-weight:700;">Rattraper →</span></div>`;
+  }
   html += `<div style="margin-top:6px;"><button class="btn btn-principal btn-petit" onclick="document.querySelector('[data-onglet=temperatures]').click()">→ Aller aux relevés</button></div>`;
   html += `</div>`;
 
@@ -2360,7 +2452,7 @@ function afficherTemperatures() {
       <td>${item.heure || '—'}</td>
       <td>${item.equipement}</td>
       <td><strong>${item.valeur} °C</strong></td>
-      <td>${item.personne || '—'}</td>
+      <td>${item.personne || '—'}${item.saisiLe ? ` <span class="badge-tardif" title="Relevé saisi après coup">saisi le ${formaterDate(item.saisiLe.slice(0,10))}</span>` : ''}</td>
       <td><span class="statut ${s.classe}">${s.texte}</span></td>
       <td><button class="btn btn-danger" data-id="${item.id}" data-action="suppr-temp">Supprimer</button></td>
     `;
@@ -2399,6 +2491,7 @@ document.getElementById('temp-ajouter').addEventListener('click', () => {
     heure: document.getElementById('temp-heure').value,
     personne: document.getElementById('temp-personne').value.trim()
   };
+  if (date < isoLocal()) item.saisiLe = new Date().toISOString();
   const donnees = lireDonnees(CLE_TEMP);
   donnees.push(item);
   ecrireDonnees(CLE_TEMP, donnees);
@@ -2434,6 +2527,126 @@ function rafraichirDateHeureReleve() {
 }
 rafraichirDateHeureReleve();
 document.querySelector('[data-onglet="temperatures"]').addEventListener('click', () => { rafraichirDateHeureReleve(); majSelectEquipements(); });
+
+// ---- Saisie rapide : tous les équipements d'un coup + rattrapage des jours oubliés ----
+const NB_JOURS_RATTRAPAGE = 14;
+const CLE_PREF_RELEVEUR = 'pref_temp_releve_par';
+function equipementsAReleverChaqueJour() {
+  return lireDonnees(CLE_EF).filter(e => e.type !== 'Liaison chaude / Maintien');
+}
+// Pour chaque jour récent : liste des équipements sans aucun relevé
+function joursManquants() {
+  const eqs = equipementsAReleverChaqueJour();
+  const releves = lireDonnees(CLE_TEMP);
+  if (!eqs.length || !releves.length) return [];
+  const premier = releves.reduce((m, r) => (r.date && r.date < m ? r.date : m), isoLocal());
+  const res = [];
+  for (let i = 0; i < NB_JOURS_RATTRAPAGE; i++) {
+    const jour = ajouterJours(isoLocal(), -i);
+    if (jour < premier) break;
+    const faits = new Set(releves.filter(r => r.date === jour).map(r => r.equipement));
+    res.push({ jour, manquants: eqs.filter(e => !faits.has(e.nom)).map(e => e.nom) });
+  }
+  return res;
+}
+function libelleJour(iso) {
+  const ecart = ecartJours(iso, isoLocal());
+  if (ecart === 0) return "Aujourd'hui";
+  if (ecart === 1) return 'Hier';
+  return JOURS_SEMAINE[new Date(iso + 'T12:00:00').getDay()].slice(0, 3) + '. ' + formaterDate(iso).slice(0, 5);
+}
+function afficherSaisieRapide() {
+  const date = document.getElementById('tr-date').value || isoLocal();
+  // Bandeau des jours
+  const jours = joursManquants();
+  const jourCourant = jours.length ? jours : [{ jour: isoLocal(), manquants: equipementsAReleverChaqueJour().map(e => e.nom) }];
+  document.getElementById('tr-jours').innerHTML = jourCourant.map(j => {
+    const ok = j.manquants.length === 0;
+    return `<button type="button" class="tr-jour ${ok ? 'complet' : (j.jour === isoLocal() ? '' : 'manque')} ${j.jour === date ? 'choisi' : ''}" data-tr-jour="${j.jour}">
+      <b>${libelleJour(j.jour)}</b>${ok ? '✅ Complet' : `${j.manquants.length} manquant${j.manquants.length > 1 ? 's' : ''}`}</button>`;
+  }).join('');
+  document.querySelectorAll('[data-tr-jour]').forEach(b => b.addEventListener('click', () => choisirDateSaisieRapide(b.dataset.trJour)));
+
+  // Avertissement saisie tardive
+  const alerte = document.getElementById('tr-alerte-tardive');
+  if (date < isoLocal()) {
+    alerte.style.display = 'block';
+    alerte.innerHTML = `📅 Rattrapage du <strong>${formaterDateLong(date)}</strong>. Saisissez les valeurs réellement relevées ce jour-là (thermomètre, enregistreur, fiche papier). Elles seront marquées « saisi le ${formaterDate(isoLocal())} » dans le registre.`;
+  } else alerte.style.display = 'none';
+
+  // Grille : une ligne par équipement
+  const eqs = lireDonnees(CLE_EF);
+  const grille = document.getElementById('tr-grille');
+  if (!eqs.length) {
+    grille.innerHTML = `<p style="font-size:13px; color:var(--rouge);">Aucun équipement déclaré — ajoutez vos frigos dans l'onglet 🧊 Équipements Froid.</p>`;
+    return;
+  }
+  const relevesJour = lireDonnees(CLE_TEMP).filter(r => r.date === date);
+  grille.innerHTML = eqs.map((e, i) => {
+    const deja = relevesJour.filter(r => r.equipement === e.nom).sort((a, b) => (a.heure || '').localeCompare(b.heure || ''));
+    const txtDeja = deja.length ? `<span class="tr-deja">✓ ${deja.map(r => `${r.valeur}°C${r.heure ? ' à ' + r.heure : ''}`).join(' · ')}</span>` : '<span style="color:var(--rouge);">Pas encore relevé</span>';
+    return `<div class="tr-ligne">
+      <div class="tr-nom">${EF_ICONES[e.type] || '🌡️'} ${echapperHTML(e.nom)}<small>Cible ${e.tempMin}°C → ${e.tempMax}°C · ${txtDeja}</small></div>
+      <input type="number" step="0.1" inputmode="decimal" class="tr-valeur" data-eq="${echapperHTML(e.nom)}" data-index="${i}" placeholder="°C" enterkeyhint="next">
+    </div>`;
+  }).join('');
+  grille.querySelectorAll('.tr-valeur').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.classList.remove('ok', 'urgent');
+      if (inp.value !== '' && !isNaN(parseFloat(inp.value))) inp.classList.add(statutTemperature(inp.dataset.eq, inp.value).classe);
+    });
+    inp.addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      const suivant = grille.querySelector(`.tr-valeur[data-index="${parseInt(inp.dataset.index) + 1}"]`);
+      if (suivant) suivant.focus(); else document.getElementById('tr-enregistrer').focus();
+    });
+  });
+}
+function choisirDateSaisieRapide(iso) {
+  document.getElementById('tr-date').value = iso;
+  document.getElementById('tr-heure').value = iso === isoLocal() ? heureLocale() : '';
+  afficherSaisieRapide();
+}
+document.getElementById('tr-date').addEventListener('change', () => {
+  const d = document.getElementById('tr-date');
+  if (d.value > isoLocal()) { alert('Impossible d\'enregistrer un relevé dans le futur.'); d.value = isoLocal(); }
+  choisirDateSaisieRapide(d.value || isoLocal());
+});
+document.querySelectorAll('[data-tr-heure]').forEach(b => b.addEventListener('click', () => { document.getElementById('tr-heure').value = b.dataset.trHeure; }));
+try { const n = localStorage.getItem(CLE_PREF_RELEVEUR); if (n) { document.getElementById('tr-personne').value = n; document.getElementById('temp-personne').value = n; } } catch (e) {}
+
+document.getElementById('tr-enregistrer').addEventListener('click', () => {
+  const date = document.getElementById('tr-date').value;
+  const heure = document.getElementById('tr-heure').value;
+  const personne = document.getElementById('tr-personne').value.trim();
+  if (!date) { alert('Merci de renseigner la date.'); return; }
+  const saisies = Array.from(document.querySelectorAll('.tr-valeur')).filter(i => i.value !== '');
+  if (!saisies.length) { alert('Aucune température saisie.'); return; }
+  const invalide = saisies.find(i => isNaN(parseFloat(i.value)));
+  if (invalide) { alert(`Température invalide pour « ${invalide.dataset.eq} ».`); invalide.focus(); return; }
+  if (!personne) { alert('Indiquez qui a fait le relevé (champ « Relevé par »).'); document.getElementById('tr-personne').focus(); return; }
+  if (date < isoLocal() && !heure && !confirm('Aucune heure indiquée pour ce rattrapage. Enregistrer quand même ?')) return;
+  try { localStorage.setItem(CLE_PREF_RELEVEUR, personne); } catch (e) {}
+  const tardif = date < isoLocal() ? new Date().toISOString() : null;
+  const nouveaux = saisies.map(i => {
+    const item = { id: genererId(), equipement: i.dataset.eq, valeur: i.value, date, heure, personne };
+    if (tardif) item.saisiLe = tardif;
+    return item;
+  });
+  ecrireDonnees(CLE_TEMP, lireDonnees(CLE_TEMP).concat(nouveaux));
+  afficherTemperatures(); majTableauBord(); majAujourdHui();
+  // Passer automatiquement au prochain jour incomplet (rattrapage en série)
+  const reste = joursManquants().filter(j => j.manquants.length && j.jour !== isoLocal());
+  const hors = nouveaux.filter(n => statutTemperature(n.equipement, n.valeur).classe === 'urgent');
+  let msg = `✅ ${nouveaux.length} relevé(s) enregistré(s) pour le ${formaterDate(date)}.`;
+  if (hors.length) msg += `\n\n⚠️ HORS NORME : ${hors.map(h => `${h.equipement} (${h.valeur}°C)`).join(', ')}.\nPensez à déclarer une non-conformité avec l'action corrective.`;
+  if (reste.length) msg += `\n\nIl reste ${reste.length} jour(s) incomplet(s) — le plus récent est affiché.`;
+  alert(msg);
+  choisirDateSaisieRapide(reste.length && date < isoLocal() ? reste[0].jour : date);
+});
+choisirDateSaisieRapide(isoLocal());
+document.querySelector('[data-onglet="temperatures"]').addEventListener('click', () => choisirDateSaisieRapide(isoLocal()));
 
 // ===================== PLAN DE NETTOYAGE =====================
 const CLE_NET = 'haccp_nettoyage';
@@ -2916,26 +3129,6 @@ function formaterDateLong(iso) {
   return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
 
-function genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, allergenes) {
-  const joursRestantsVal = joursRestants(dlc);
-  const urgence = joursRestantsVal <= 2 ? '#B71C1C' : (joursRestantsVal <= 5 ? '#B8860B' : '#1B5E20');
-  return `
-    <div class="etiq-prep">
-      <div class="ep-restaurant">Restaurant Le Modulo · Préparation cuisine</div>
-      <div class="ep-nom">${nom}</div>
-      <div class="ep-ligne"><strong>Produit le :</strong> ${formaterDate(dateProd)} à ${heureProd || '—'}</div>
-      <div class="ep-ligne"><strong>Stockage :</strong> ${lieu}</div>
-      <div class="ep-dlc" style="background:${urgence};">
-        <div class="ep-dlc-label">À consommer avant le</div>
-        <div class="ep-dlc-date">${formaterDate(dlc)}</div>
-        <div style="font-size:9px; opacity:0.85; margin-top:2px;">${formaterDateLong(dlc)}</div>
-      </div>
-      ${allergenes ? `<div class="ep-allerg">⚠️ Allergènes : ${allergenes}</div>` : ''}
-      <div class="ep-par">${par ? 'Réalisé par : ' + par : ''} · ${new Date().toLocaleDateString('fr-FR')}</div>
-    </div>
-  `;
-}
-
 // ---- Impression sur imprimante d'étiquettes (Brother QL) ----
 const FORMATS_ETIQ = {
   c62:     { page: '62mm 58mm' },
@@ -2969,18 +3162,46 @@ function nettoyerImpressionEtiq() {
   if (styleImpressionEtiq) { styleImpressionEtiq.remove(); styleImpressionEtiq = null; }
 }
 window.addEventListener('afterprint', nettoyerImpressionEtiq);
+
+// Bande unique (rouleau continu) : une seule page => un seul travail rapide et une seule coupe
+const CLE_PREF_BANDE = 'pref_etiq_bande_unique';
+const caseBande = document.getElementById('etiq-bande-unique');
+try { caseBande.checked = localStorage.getItem(CLE_PREF_BANDE) === '1'; } catch (e) {}
+caseBande.addEventListener('change', () => { try { localStorage.setItem(CLE_PREF_BANDE, caseBande.checked ? '1' : '0'); } catch (e) {} });
+function majOptionBande() { document.getElementById('etiq-bande-ligne').style.display = formatEtiq() === 'c62' ? 'flex' : 'none'; }
+selectFormat.addEventListener('change', majOptionBande);
+majOptionBande();
+
 function imprimerEtiquettesImprimante(etiquettes) {
   const format = formatEtiq();
   nettoyerImpressionEtiq();
-  // 29x90 : la page est en portrait (29 mm de large, comme le rouleau) et l'étiquette est tournée,
-  // pour que l'imprimante n'ait jamais à réduire ni à tourner la page.
-  document.getElementById('zone-impression-etiq').innerHTML = etiquettes.map(e =>
-    format === '29x90' ? `<div class="rot-29x90">${htmlEtiquette(e, format)}</div>` : htmlEtiquette(e, format)).join('');
+  const zone = document.getElementById('zone-impression-etiq');
+  let page;
+  if (format === 'a4') {
+    // Planches de 24 étiquettes (3 x 8) par feuille A4
+    let html = '';
+    for (let i = 0; i < etiquettes.length; i += 24) {
+      const fin = i + 24 >= etiquettes.length;
+      html += `<div class="planche-a4" style="${fin ? '' : 'break-after:page; page-break-after:always;'}">${etiquettes.slice(i, i + 24).map(e => htmlEtiquette(e, 'a4')).join('')}</div>`;
+    }
+    zone.innerHTML = html;
+    page = 'A4 portrait';
+  } else if (format === 'c62' && caseBande.checked && etiquettes.length > 1) {
+    zone.innerHTML = `<div class="bande-unique">${etiquettes.map(e => htmlEtiquette(e, format)).join('')}</div>`;
+    page = `62mm ${58 * etiquettes.length}mm`;
+  } else {
+    // 29x90 : la page est en portrait (29 mm de large, comme le rouleau) et l'étiquette est tournée,
+    // pour que l'imprimante n'ait jamais à réduire ni à tourner la page.
+    zone.innerHTML = etiquettes.map(e =>
+      format === '29x90' ? `<div class="rot-29x90">${htmlEtiquette(e, format)}</div>` : htmlEtiquette(e, format)).join('');
+    page = FORMATS_ETIQ[format].page;
+  }
   styleImpressionEtiq = document.createElement('style');
-  styleImpressionEtiq.textContent = `@page { size: ${FORMATS_ETIQ[format].page}; margin: 0; }`;
+  styleImpressionEtiq.textContent = `@page { size: ${page}; margin: 0; }`;
   document.head.appendChild(styleImpressionEtiq);
   document.body.classList.add('impr-etiq');
-  window.print();
+  // Laisser le navigateur poser la mise en page avant d'ouvrir la boîte d'impression
+  requestAnimationFrame(() => setTimeout(() => window.print(), 0));
 }
 
 // Allergènes de l'étiquette : cases à cocher parmi les 14 allergènes réglementaires
@@ -3026,53 +3247,125 @@ function donneesEtiquettePrep() {
   };
 }
 
-document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
+function quantiteEtiq() {
+  const champ = document.getElementById('etiq-prep-quantite');
+  const q = Math.min(99, Math.max(1, parseInt(champ.value) || 1));
+  champ.value = q;
+  return q;
+}
+document.querySelectorAll('[data-qte-delta]').forEach(b => b.addEventListener('click', () => {
+  const champ = document.getElementById('etiq-prep-quantite');
+  champ.value = Math.min(99, Math.max(1, (parseInt(champ.value) || 1) + parseInt(b.dataset.qteDelta)));
+}));
+document.querySelectorAll('[data-qte]').forEach(b => b.addEventListener('click', () => {
+  document.getElementById('etiq-prep-quantite').value = b.dataset.qte;
+}));
+document.getElementById('etiq-prep-quantite').addEventListener('change', quantiteEtiq);
+
+function ajouterJours(iso, n) {
+  const d = new Date((iso || isoLocal()) + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return isoLocal(d);
+}
+function ecartJours(isoA, isoB) {
+  return Math.round((new Date(isoB + 'T12:00:00') - new Date(isoA + 'T12:00:00')) / 86400000);
+}
+document.querySelectorAll('[data-dlc-jours]').forEach(b => b.addEventListener('click', () => {
+  document.getElementById('etiq-prep-dlc').value = ajouterJours(document.getElementById('etiq-prep-date-prod').value, parseInt(b.dataset.dlcJours));
+}));
+
+function verifierEtiquettePrep() {
   const nom = document.getElementById('etiq-prep-nom').value.trim();
   const dlc = document.getElementById('etiq-prep-dlc').value;
-  if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom de la préparation et la date limite de consommation.'); return; }
-  if (!verifierRealisePar()) return;
-  const dateProd = document.getElementById('etiq-prep-date-prod').value;
-  const heureProd = document.getElementById('etiq-prep-heure-prod').value;
-  const lieu = document.getElementById('etiq-prep-lieu').value + (origineEtiquette() ? ' · Origine : ' + origineEtiquette() : '');
-  const par = document.getElementById('etiq-prep-par').value.trim();
-  const allergenes = allergenesEtiquette();
-  const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
-  if (formatEtiq() !== 'a4') {
-    document.getElementById('etiq-prep-preview').innerHTML = `<div class="apercu-lbl">${htmlEtiquette(donneesEtiquettePrep(), formatEtiq())}</div>` +
-      (qte > 1 ? `<div style="font-size:12px; color:var(--gris); margin-top:6px;">× ${qte} étiquettes</div>` : '');
-    document.getElementById('etiq-prep-zone').style.display = 'block';
-    document.getElementById('etiq-prep-zone').scrollIntoView({ behavior:'smooth', block:'start' });
-    return;
-  }
-  let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
-  for (let i = 0; i < qte; i++) {
-    html += genererHTMLEtiquettePrep(nom, dateProd, heureProd, dlc, lieu, par, allergenes);
-  }
-  html += '</div>';
-  document.getElementById('etiq-prep-preview').innerHTML = html;
+  if (!nom || !dlc) { alert('Merci de renseigner au minimum le nom de la préparation et la date limite de consommation.'); return false; }
+  return verifierRealisePar();
+}
+
+// ---- Dernières préparations (mémorisées sur l'appareil) ----
+const CLE_ETIQ_RECENTES = 'pref_etiq_recentes';
+function lireRecentes() { try { return JSON.parse(localStorage.getItem(CLE_ETIQ_RECENTES)) || []; } catch (e) { return []; } }
+function memoriserPreparation(qte) {
+  const dateProd = document.getElementById('etiq-prep-date-prod').value || isoLocal();
+  const prep = {
+    nom: document.getElementById('etiq-prep-nom').value.trim(),
+    lieu: document.getElementById('etiq-prep-lieu').value,
+    origine: origineEtiquette(),
+    allergenes: document.getElementById('etiq-prep-sans-allerg').checked ? 'Aucun'
+      : Array.from(document.querySelectorAll('.etiq-allerg:checked')).map(c => c.value),
+    joursDlc: Math.max(0, ecartJours(dateProd, document.getElementById('etiq-prep-dlc').value)),
+    qte
+  };
+  const liste = lireRecentes().filter(r => r.nom.toLowerCase() !== prep.nom.toLowerCase());
+  liste.unshift(prep);
+  try { localStorage.setItem(CLE_ETIQ_RECENTES, JSON.stringify(liste.slice(0, 12))); } catch (e) {}
+  afficherRecentes();
+}
+function reprendrePreparation(r) {
+  document.getElementById('etiq-prep-nom').value = r.nom;
+  document.getElementById('etiq-prep-lieu').value = r.lieu;
+  document.getElementById('etiq-prep-origine').value = r.origine || '';
+  document.getElementById('etiq-prep-date-prod').value = isoLocal();
+  document.getElementById('etiq-prep-heure-prod').value = heureLocale();
+  document.getElementById('etiq-prep-dlc').value = ajouterJours(isoLocal(), r.joursDlc || 0);
+  document.getElementById('etiq-prep-quantite').value = r.qte || 1;
+  const sans = document.getElementById('etiq-prep-sans-allerg');
+  sans.checked = r.allergenes === 'Aucun';
+  document.querySelectorAll('.etiq-allerg').forEach(c => {
+    c.checked = Array.isArray(r.allergenes) && r.allergenes.includes(c.value);
+    c.closest('.allergene-case').classList.toggle('coche', c.checked);
+  });
+  document.getElementById('etiq-prep-sans-allerg-case').classList.toggle('coche', sans.checked);
+}
+function afficherRecentes() {
+  const liste = lireRecentes();
+  document.getElementById('etiq-recentes-carte').style.display = liste.length ? 'block' : 'none';
+  const cont = document.getElementById('etiq-recentes');
+  cont.innerHTML = liste.map((r, i) => `
+    <div class="recente">
+      <div class="r-info"><strong>${echapperHTML(r.nom)}</strong>
+        <small>${echapperHTML(r.lieu)} · DLC J+${r.joursDlc} · ${r.qte} étiq. · Allergènes : ${echapperHTML(Array.isArray(r.allergenes) ? (r.allergenes.join(', ') || '—') : r.allergenes)}</small></div>
+      <div class="r-actions">
+        <button class="btn btn-principal btn-petit" data-recente-imprimer="${i}">🖨 Réimprimer</button>
+        <button class="btn btn-secondaire btn-petit" data-recente-reprendre="${i}">✏️ Reprendre</button>
+        <button class="btn btn-danger" data-recente-suppr="${i}" title="Retirer de la liste">✕</button>
+      </div>
+    </div>`).join('');
+  cont.querySelectorAll('[data-recente-reprendre]').forEach(b => b.addEventListener('click', () => {
+    reprendrePreparation(lireRecentes()[b.dataset.recenteReprendre]);
+    document.getElementById('etiq-prep-nom').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }));
+  cont.querySelectorAll('[data-recente-imprimer]').forEach(b => b.addEventListener('click', () => {
+    reprendrePreparation(lireRecentes()[b.dataset.recenteImprimer]);
+    document.getElementById('etiq-prep-direct').click();
+  }));
+  cont.querySelectorAll('[data-recente-suppr]').forEach(b => b.addEventListener('click', () => {
+    const l = lireRecentes(); l.splice(parseInt(b.dataset.recenteSuppr), 1);
+    try { localStorage.setItem(CLE_ETIQ_RECENTES, JSON.stringify(l)); } catch (e) {}
+    afficherRecentes();
+  }));
+}
+function echapperHTML(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+afficherRecentes();
+
+function imprimerPreparation() {
+  if (!verifierEtiquettePrep()) return;
+  const qte = quantiteEtiq();
+  memoriserPreparation(qte);
+  imprimerEtiquettesImprimante(Array(qte).fill(donneesEtiquettePrep()));
+}
+
+document.getElementById('etiq-prep-apercu').addEventListener('click', () => {
+  if (!verifierEtiquettePrep()) return;
+  const qte = quantiteEtiq();
+  const format = formatEtiq();
+  const nb = format === 'a4' ? ` — ${Math.ceil(qte / 24)} feuille(s) A4` : '';
+  document.getElementById('etiq-prep-preview').innerHTML = `<div class="apercu-lbl">${htmlEtiquette(donneesEtiquettePrep(), format)}</div>` +
+    `<div style="font-size:12px; color:var(--gris); margin-top:6px;">× ${qte} étiquette(s)${nb}</div>`;
   document.getElementById('etiq-prep-zone').style.display = 'block';
   document.getElementById('etiq-prep-zone').scrollIntoView({ behavior:'smooth', block:'start' });
 });
-
-document.getElementById('etiq-prep-imprimer-btn').addEventListener('click', () => {
-  if (!verifierRealisePar()) return;
-  if (formatEtiq() !== 'a4') {
-    const e = donneesEtiquettePrep();
-    const qte = parseInt(document.getElementById('etiq-prep-quantite').value) || 1;
-    imprimerEtiquettesImprimante(Array(qte).fill(e));
-    return;
-  }
-  // Masquer tout sauf la zone d'aperçu pour l'impression
-  document.querySelectorAll('main > section, header, nav, footer').forEach(el => el.style.display = 'none');
-  const zone = document.getElementById('etiq-prep-preview');
-  zone.style.cssText = 'position:fixed;inset:0;background:white;z-index:9999;padding:20px;overflow:auto;';
-  window.print();
-  setTimeout(() => {
-    document.querySelectorAll('main > section, header, nav, footer').forEach(el => el.style.display = '');
-    zone.style.cssText = '';
-    document.querySelector('.onglet.active')?.style && (document.querySelector('.onglet.active').style.display = 'block');
-  }, 500);
-});
+document.getElementById('etiq-prep-direct').addEventListener('click', imprimerPreparation);
+document.getElementById('etiq-prep-imprimer-btn').addEventListener('click', imprimerPreparation);
 
 document.getElementById('etiq-prep-fermer').addEventListener('click', () => {
   document.getElementById('etiq-prep-zone').style.display = 'none';
@@ -3102,25 +3395,16 @@ document.getElementById('etiq-tout-cocher').addEventListener('click', () => docu
 document.getElementById('etiq-tout-decocher').addEventListener('click', () => document.querySelectorAll('.etiq-case').forEach(c => c.checked = false));
 document.getElementById('etiq-imprimer').addEventListener('click', () => {
   const idsCoches = Array.from(document.querySelectorAll('.etiq-case:checked')).map(c => c.dataset.id);
-  if (formatEtiq() !== 'a4') {
-    const produits = lireDonnees(CLE_DLC).filter(p => idsCoches.includes(p.id)).sort((a,b) => new Date(a.dlc) - new Date(b.dlc));
-    if (!produits.length) { alert('Aucun produit sélectionné.'); return; }
-    imprimerEtiquettesImprimante(produits.map(p => ({
-      entete: 'Le Modulo · ' + (p.categorie || ''),
-      nom: p.nom,
-      lignes: [`Reçu / produit le ${formaterDate(p.reception)}`, p.lieu || ''],
-      dlc: p.dlc,
-      allergenes: '',
-      pied: ''
-    })));
-    return;
-  }
-  document.querySelectorAll('.etiquette').forEach(carte => {
-    const idImpression = carte.querySelector('.etiq-impression').dataset.id;
-    carte.style.display = idsCoches.includes(idImpression) ? '' : 'none';
-  });
-  window.print();
-  setTimeout(() => document.querySelectorAll('.etiquette').forEach(c => c.style.display = ''), 500);
+  const produits = lireDonnees(CLE_DLC).filter(p => idsCoches.includes(p.id)).sort((a,b) => new Date(a.dlc) - new Date(b.dlc));
+  if (!produits.length) { alert('Aucun produit sélectionné.'); return; }
+  imprimerEtiquettesImprimante(produits.map(p => ({
+    entete: 'Le Modulo · ' + (p.categorie || ''),
+    nom: p.nom,
+    lignes: [`Reçu / produit le ${formaterDate(p.reception)}`, p.lieu || ''],
+    dlc: p.dlc,
+    allergenes: '',
+    pied: ''
+  })));
 });
 
 // ===================== NON-CONFORMITES =====================
